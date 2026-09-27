@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Engine Comparison — Spark Rust 0.42.1 vs DuckDB · Gluten · Spark 4.2</title>
+<meta name="description" content="TPC-H and TPC-DS benchmark comparison of Spark Rust 0.42.1, DuckDB 1.5.5, Spark 4.1.1 Gluten and Spark 4.2 on single-node and 8-worker cluster hardware.">
+<style>
+:root{
+  --bg:#0d1117; --panel:#141a22; --panel2:#1a212b; --inset:#0f141b;
+  --line:#28313d; --line2:#3a4552;
+  --text:#e8edf4; --muted:#9aa7b6; --faint:#71809122;
+  --teal:#2dd4bf; --green:#4ade80; --amber:#fbbf24; --violet:#a78bfa; --rose:#fb7185;
+  --good:#34d399; --bad:#f87171; --warn:#fbbf24;
+  --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --nav-h:54px; --maxw:1180px; --rad:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+body{
+  margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:15px;line-height:1.55;
+}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--panel2);color:var(--text);
+  padding:10px 16px;border-radius:0 0 8px 0;z-index:100}
+.skip:focus{left:0}
+
+/* ---------- nav ---------- */
+.nav{
+  position:sticky;top:0;z-index:50;height:var(--nav-h);
+  display:flex;align-items:center;gap:20px;padding:0 22px;
+  background:rgba(13,17,23,.88);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.nav .brand{font-weight:650;font-size:14px;letter-spacing:.2px;white-space:nowrap}
+.nav .brand b{color:var(--teal);font-weight:700}
+.nav nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1 1 auto}
+.nav nav::-webkit-scrollbar{display:none}
+.nav nav a{
+  color:var(--muted);font-size:13px;padding:6px 11px;border-radius:999px;white-space:nowrap;
+}
+.nav nav a:hover{color:var(--text);background:var(--panel2);text-decoration:none}
+.nav .src{margin-left:auto;color:var(--faint,#6b7684);font-size:12px;white-space:nowrap}
+
+/* ---------- layout ---------- */
+main{max-width:var(--maxw);margin:0 auto;padding:0 22px 40px}
+section{scroll-margin-top:calc(var(--nav-h) + 14px);padding-top:44px}
+.kicker{
+  font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--teal);margin:0 0 6px;
+}
+h1{font-size:clamp(24px,3.4vw,34px);line-height:1.15;margin:0 0 10px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:21px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+h3{font-size:15px;margin:26px 0 10px;font-weight:650;color:var(--text)}
+.sub{color:var(--muted);margin:0 0 18px;max-width:70ch}
+.sub b{color:var(--text);font-weight:600}
+
+/* ---------- hero ---------- */
+.hero{padding-top:40px}
+.hero .meta{color:var(--muted);font-size:13px;margin-bottom:18px}
+.hero .meta code{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin:20px 0 8px}
+.chip{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:var(--rad);padding:14px 16px 12px;
+}
+.chip .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.chip .v{font-family:var(--mono);font-size:24px;font-weight:700;margin-top:4px;line-height:1.1}
+.chip .d{font-size:12px;color:var(--muted);margin-top:4px}
+.chip.good .v{color:var(--good)} .chip.bad .v{color:var(--bad)} .chip.neutral .v{color:var(--teal)}
+.findings{margin:22px 0 0;padding:0 0 0 0;list-style:none;display:grid;gap:10px}
+.findings li{
+  position:relative;padding:10px 14px 10px 40px;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--rad);color:var(--muted);
+}
+.findings li::before{
+  content:attr(data-n);position:absolute;left:13px;top:11px;width:17px;height:17px;
+  border-radius:50%;background:var(--panel2);border:1px solid var(--line2);
+  color:var(--teal);font-size:11px;font-weight:700;display:grid;place-items:center;
+  font-family:var(--mono);
+}
+.findings li b{color:var(--text);font-weight:600}
+.findings li .m{font-family:var(--mono);font-size:.92em;color:var(--text)}
+
+/* ---------- toggles ---------- */
+.seg{display:inline-flex;background:var(--inset);border:1px solid var(--line);
+  border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{
+  appearance:none;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border-radius:7px;
+}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--line2)}
+.seg button:hover:not([aria-pressed="true"]){color:var(--text)}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 16px}
+.toolbar .lbl{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+
+/* ---------- tables ---------- */
+.scroll-x{overflow-x:auto;border:1px solid var(--line);border-radius:var(--rad);background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+caption{text-align:left;color:var(--muted);font-size:12px;padding:10px 14px 0}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{
+  font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  font-weight:650;border-bottom:1px solid var(--line2);background:var(--panel);
+  position:sticky;top:var(--nav-h);z-index:5;
+}
+tbody th,td.qh{text-align:left;font-weight:600}
+tbody th{color:var(--muted);font-family:var(--mono);font-weight:600;font-size:13px}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:rgba(255,255,255,.025)}
+td.num{font-family:var(--mono);font-size:13px}
+tr.allrow td,tr.allrow th{border-top:2px solid var(--line2);background:rgba(45,212,191,.03)}
+.best{box-shadow:inset 0 0 0 1px var(--good);border-radius:6px;background:rgba(52,211,153,.07)}
+.dag{color:var(--warn);cursor:help;margin-left:3px}
+.ratio{display:block;font-size:11px;margin-top:1px}
+.ratio.good{color:var(--good)} .ratio.bad{color:var(--bad)} .ratio.par{color:var(--muted)}
+.matched{display:block;font-size:10.5px;color:var(--faint,#6b7684);margin-top:1px}
+td .bar{position:relative;z-index:0}
+td .bar::before{
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:5px;
+  background:linear-gradient(90deg,rgba(251,191,36,.13),rgba(251,113,133,.16));
+  width:var(--w,0%);max-width:100%;
+}
+
+/* engine legend */
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:2px 0 14px}
+.legend .e{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.legend .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+.legend .base-tag{font-size:11px;color:var(--faint,#6b7684);border:1px dashed var(--line2);
+  padding:1px 7px;border-radius:999px}
+
+/* ---------- heatmap ---------- */
+.heatwrap{border:1px solid var(--line);border-radius:var(--rad);background:var(--panel);overflow-x:auto}
+table.heat td{padding:5px 9px;font-family:var(--mono);font-size:12.5px;line-height:1.3}
+table.heat td .t{display:block}
+table.heat td .r{display:block;font-size:10.5px;opacity:.82}
+table.heat td.base{color:var(--muted)}
+table.heat td.base .r{display:none}
+table.heat tbody th{font-size:12px;padding:5px 8px 5px 12px}
+.mk{
+  display:inline-grid;place-items:center;width:15px;height:15px;margin-left:5px;
+  border-radius:4px;font-size:10px;font-weight:800;font-family:var(--sans);
+  background:rgba(251,191,36,.18);color:var(--warn);border:1px solid rgba(251,191,36,.45);
+  vertical-align:1px;cursor:help;
+}
+.mk.p{background:rgba(167,139,250,.16);color:var(--violet);border-color:rgba(167,139,250,.45)}
+.estats{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.estats .e{
+  display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:9px;padding:7px 12px;font-size:12px;color:var(--muted);
+}
+.estats .e b{color:var(--text);font-weight:650}
+.estats .dot{width:9px;height:9px;border-radius:3px}
+.estats .sep{color:var(--line2)}
+.scale{display:flex;align-items:center;gap:10px;margin:12px 2px 0;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.scale .grad{height:10px;flex:0 0 190px;border-radius:5px;
+  background:linear-gradient(90deg,#095e4a,#242c38 42%,#92400e 72%,#991b1b)}
+.footnote{font-size:12px;color:var(--faint,#6b7684);margin-top:10px;max-width:80ch}
+.footnote b{color:var(--muted)}
+
+/* ---------- cluster ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:14px 16px}
+.card .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.card .v{font-family:var(--mono);font-size:21px;font-weight:700;margin-top:5px;line-height:1.15}
+.card .v small{font-size:12px;color:var(--muted);font-weight:500}
+.card .d{font-size:12px;color:var(--muted);margin-top:4px}
+.card.hero-card{background:linear-gradient(160deg,rgba(45,212,191,.12),var(--panel) 55%);
+  border-color:rgba(45,212,191,.35)}
+.card.hero-card.losing{background:linear-gradient(160deg,rgba(251,113,133,.12),var(--panel) 55%);
+  border-color:rgba(251,113,133,.35)}
+.card.hero-card .v{font-size:26px}
+.stripwrap{border:1px solid var(--line);border-radius:var(--rad);background:var(--panel);padding:18px 16px 10px;margin:16px 0}
+.strip{display:flex;align-items:flex-end;gap:1px;height:150px;min-width:0}
+.strip .bar{flex:1 1 0;min-width:0;border-radius:2px 2px 0 0;background:var(--teal)}
+.strip .bar.g{background:var(--rose)}
+.strip .bar.none{background:var(--line2)}
+.strip-x{display:flex;gap:1px;margin-top:6px}
+.strip-x i{flex:1 1 0;min-width:0;height:3px}
+.strip-legend{display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.strip-legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+details{border:1px solid var(--line);border-radius:var(--rad);background:var(--panel);margin-top:14px}
+summary{cursor:pointer;padding:12px 16px;font-weight:600;font-size:13.5px;color:var(--muted);list-style:none;display:flex;align-items:center;gap:8px}
+summary::before{content:"▸";color:var(--teal);transition:transform .15s}
+details[open] summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--text)}
+details .inner{padding:0 16px 14px}
+
+/* ---------- method ---------- */
+.method-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:16px 0}
+.hw{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:16px}
+.hw .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.hw .v{font-size:16px;font-weight:650;margin-top:6px}
+.hw .d{font-size:12.5px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+dl.defs{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:14px 0 0;font-size:13.5px}
+dl.defs dt{font-family:var(--mono);color:var(--teal);font-weight:600}
+dl.defs dt .mk{margin:0 0 0 4px}
+dl.defs dd{margin:0;color:var(--muted)}
+ul.caveats{margin:12px 0 0;padding-left:20px;color:var(--muted);font-size:13.5px;display:grid;gap:7px}
+ul.caveats b{color:var(--text)}
+
+/* ---------- footer / tooltip ---------- */
+footer{border-top:1px solid var(--line);margin-top:56px;padding:22px;color:var(--faint,#6b7684);
+  font-size:12px;text-align:center}
+footer code{font-family:var(--mono)}
+#tooltip{
+  position:fixed;z-index:99;max-width:320px;background:#1d2530;border:1px solid var(--line2);
+  border-radius:8px;padding:8px 11px;font-size:12px;color:var(--text);pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);line-height:1.45;
+}
+#tooltip .tt-mono{font-family:var(--mono)}
+@media (max-width:760px){
+  main{padding:0 14px 32px}
+  .nav{padding:0 14px;gap:12px}
+  .nav .src{display:none}
+  .chips{grid-template-columns:1fr 1fr}
+  dl.defs{grid-template-columns:1fr;gap:2px 0}
+  dl.defs dd{margin-bottom:8px}
+  .card .v{font-size:18px}
+}
+@media print{
+  .nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{padding-top:18px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <span class="brand"><b>engine</b>-comparison</span>
+  <nav aria-label="Sections">
+    <a href="#summary">Summary</a>
+    <a href="#totals">Totals</a>
+    <a href="#perquery">Per-query</a>
+    <a href="#cluster">Cluster</a>
+    <a href="#method">Method</a>
+  </nav>
+  <span class="src">TPC-H · TPC-DS · 2026-09-25</span>
+</header>
+
+<main id="main">
+
+  <!-- ================= SUMMARY ================= -->
+  <section id="summary" class="hero" aria-labelledby="h-summary">
+    <p class="kicker" id="h-summary">Benchmark report</p>
+    <h1>Spark Rust 0.42.1 vs DuckDB 1.5.5, Spark 4.1.1 Gluten &amp; Spark 4.2</h1>
+    <p class="meta">Complete TPC-H (22 queries × SF 1–1000) and TPC-DS (99 queries × SF 1–1000) suites,
+      single node and 8-worker cluster · source <code>engine-comparison-20260925-clean.md</code></p>
+    <div class="chips" id="chips"></div>
+    <ul class="findings" id="findings"></ul>
+    <p class="footnote">All single-node ratios are relative to <b>DuckDB 1.5.5</b> (ratio = engine ÷ DuckDB,
+      lower is better). Cluster ratios are relative to <b>Spark 4.1.1 Gluten</b>. Every figure on this page is
+      computed from the embedded source dataset — no values are hand-transcribed.</p>
+  </section>
+
+  <!-- ================= TOTALS ================= -->
+  <section id="totals" aria-labelledby="h-totals">
+    <p class="kicker" id="h-totals">Single node · Azure D32ads v5</p>
+    <h2>Suite totals by scale factor</h2>
+    <p class="sub">Wall-clock seconds for the full suite at each scale factor. The green outline marks the
+      fastest engine per row; the badge under each time is the ratio to DuckDB. A
+      <span class="dag" data-tip="No canonical total in the source data: the run includes a blocked/failed query or incomplete validation. The time shown is the raw observed sum.">†</span>
+      marks a withheld canonical total. “Matched” ratios (shown for the <i>all</i> row where available) are
+      computed over the subset of queries with comparable validated results.</p>
+    <div class="legend" id="legend-engines"></div>
+    <div id="totals-tables"></div>
+  </section>
+
+  <!-- ================= PER-QUERY ================= -->
+  <section id="perquery" aria-labelledby="h-perquery">
+    <p class="kicker">Single node · every query</p>
+    <h2>Per-query results</h2>
+    <p class="sub">Each cell shows the observed wall-clock time and the ratio to DuckDB on a logarithmic colour
+      scale (green = faster than DuckDB, red = slower). Column statistics above the table count
+      faster (&lt;0.99×), parity (0.99–1.01×) and slower (&gt;1.01×) queries.</p>
+    <div class="toolbar">
+      <span class="lbl" id="pq-bench-lbl">Benchmark</span>
+      <div class="seg" id="pq-bench" role="group" aria-labelledby="pq-bench-lbl"></div>
+      <span class="lbl" id="pq-sf-lbl">Scale factor</span>
+      <div class="seg" id="pq-sf" role="group" aria-labelledby="pq-sf-lbl"></div>
+    </div>
+    <div class="estats" id="pq-stats"></div>
+    <div class="heatwrap"><table class="heat" id="pq-table"></table></div>
+    <div class="scale" aria-hidden="true">
+      <span>0.03× faster</span><span class="grad"></span><span>32× slower</span>
+      <span>· logarithmic scale, centred on parity with DuckDB</span>
+    </div>
+    <p class="footnote"><span class="mk" data-tip="Blocked/failed validation run for this engine: an observed duration is recorded, but the result did not validate and the engine’s canonical total is withheld at this scale.">B</span>
+      blocked / failed validation run ·
+      <span class="mk p" data-tip="Observed on a patched build of the engine.">P</span>
+      patched-build observation. Markers appear exactly where the source dataset records them.</p>
+  </section>
+
+  <!-- ================= CLUSTER ================= -->
+  <section id="cluster" aria-labelledby="h-cluster">
+    <p class="kicker">8 × Azure E16ads v5 workers · 128 cores · 1 TB RAM</p>
+    <h2>Cluster run — Spark Rust vs Spark 4.1.1 Gluten</h2>
+    <p class="sub">TPC-DS at scale factors 100 / 1000 / 10000 on the 8-worker cluster. Ratio = Rust ÷ Gluten;
+      a query <b>passes</b> when Rust is faster. Totals are the sum of validated per-query times and exclude
+      unvalidated “Rust-only” observations.</p>
+    <div class="toolbar">
+      <span class="lbl" id="cl-sf-lbl">Scale factor</span>
+      <div class="seg" id="cl-sf" role="group" aria-labelledby="cl-sf-lbl"></div>
+    </div>
+    <div class="cards" id="cl-cards"></div>
+    <div class="stripwrap">
+      <div class="strip" id="cl-strip" aria-hidden="true"></div>
+      <div class="strip-x" id="cl-strip-x" aria-hidden="true"></div>
+      <div class="strip-legend">
+        <span><span class="sw" style="background:var(--teal)"></span>Rust faster</span>
+        <span><span class="sw" style="background:var(--rose)"></span>Gluten faster</span>
+        <span><span class="sw" style="background:var(--line2)"></span>no valid paired result</span>
+        <span>· bar height ∝ log(duration), hover for values</span>
+      </div>
+    </div>
+    <div class="scroll-x" id="cl-agg"></div>
+    <details id="cl-detail">
+      <summary>Per-query cluster results (99 rows)</summary>
+      <div class="inner"><div class="scroll-x" id="cl-table" style="border:0;padding:0;background:transparent"></div></div>
+    </details>
+    <p class="footnote" id="cl-footnote"></p>
+  </section>
+
+  <!-- ================= METHOD ================= -->
+  <section id="method" aria-labelledby="h-method">
+    <p class="kicker" id="h-method">Methodology</p>
+    <h2>Hardware, definitions &amp; caveats</h2>
+    <div class="method-grid" id="hw-cards"></div>
+    <h3>Field definitions</h3>
+    <dl class="defs">
+      <dt>ratio</dt><dd>Engine time ÷ baseline time — DuckDB on a single node, Gluten on the cluster. Lower is better; 1.00× is parity.</dd>
+      <dt>canonical</dt><dd>The validated suite total in the source data. Withheld (null) when a query in the run failed validation.</dd>
+      <dt>matched</dt><dd>Ratio recomputed over the subset of queries with comparable validated results on both engines (reported for the “all” rows).</dd>
+      <dt>diff</dt><dd>Absolute time difference against the baseline for that comparison.</dd>
+      <dt>B / P markers</dt><dd>Per-query flags carried in the source data: <span class="mk" data-tip="Blocked/failed validation run for this engine.">B</span> blocked or failed validation, <span class="mk p" data-tip="Observed on a patched build.">P</span> patched-build observation.</dd>
+      <dt>cluster status</dt><dd>Per-query validation verdict on the cluster: <b>pass</b> (Rust faster, validated), <b>gap</b> (Gluten faster), or one of several “Rust-only” / timeout states where a paired comparison was not possible.</dd>
+      <dt>wins</dt><dd>Count of resolved paired comparisons won by each engine; queries without a valid paired result are counted as unresolved.</dd>
+    </dl>
+    <h3>Caveats</h3>
+    <ul class="caveats" id="caveats"></ul>
+  </section>
+
+</main>
+
+<footer id="footer"></footer>
+<div id="tooltip" role="tooltip" hidden></div>
+
+<script type="application/json" id="source-data">__DATA_JSON__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("source-data").textContent);
+const ENG = DATA.engines;
+const BI = ENG.findIndex(e => e.startsWith("DuckDB"));
+const SHORT = {
+  "Spark Rust 0.42.1 (default)": "Rust (default)",
+  "Spark Rust 0.42.1 (tuned)": "Rust (tuned)",
+  "DuckDB 1.5.5": "DuckDB",
+  "Spark 4.1.1 Gluten": "Gluten 4.1.1",
+  "Spark 4.2": "Spark 4.2"
+};
+const ECOL = ["var(--teal)", "var(--green)", "var(--amber)", "var(--violet)", "var(--rose)"];
+const EHEX = ["#2dd4bf", "#4ade80", "#fbbf24", "#a78bfa", "#fb7185"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- formatting ---------- */
+function fmtT(s){
+  if (s == null) return "—";
+  if (s < 1)    return s.toFixed(3) + " s";
+  if (s < 10)   return s.toFixed(2) + " s";
+  if (s < 100)  return s.toFixed(1) + " s";
+  if (s < 10000)return Math.round(s).toLocaleString("en-US") + " s";
+  return Math.round(s).toLocaleString("en-US") + " s";
+}
+function hm(s){
+  if (s == null) return "—";
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  if (h) return h + " h " + m + " min";
+  if (s >= 60) return Math.round(s / 60) + " min";
+  return s.toFixed(1) + " s";
+}
+function fmtR(r){
+  if (r == null) return "—";
+  if (r >= 100) return Math.round(r) + "×";
+  if (r >= 10)  return r.toFixed(1) + "×";
+  return r.toFixed(2) + "×";
+}
+function rClass(r){ return r == null ? "par" : (r < 0.995 ? "good" : r > 1.005 ? "bad" : "par"); }
+
+/* ---------- heatmap colour (log2 scale, ±32×) ---------- */
+function heatColor(r){
+  if (r == null) return "#1a212b";
+  const l = Math.max(-1, Math.min(1, Math.log2(r) / 5));
+  if (Math.abs(l) < 0.02) return "#242c38";
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const even = [36, 44, 56], fast = [9, 94, 74], mid = [146, 64, 14], deep = [153, 27, 27];
+  let c;
+  if (l < 0) c = mix(even, fast, -l);
+  else if (l < 0.5) c = mix(even, mid, l / 0.5);
+  else c = mix(mid, deep, (l - 0.5) / 0.5);
+  return "rgb(" + c.join(",") + ")";
+}
+
+/* ---------- tooltip ---------- */
+const tip = $("#tooltip");
+function showTip(target){
+  const txt = target.getAttribute("data-tip");
+  if (!txt) return;
+  tip.innerHTML = txt;
+  tip.hidden = false;
+  const r = target.getBoundingClientRect();
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = r.left + r.width / 2 - tw / 2;
+  let y = r.top - th - 8;
+  x = Math.max(8, Math.min(x, window.innerWidth - tw - 8));
+  if (y < 8) y = r.bottom + 8;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+function hideTip(){ tip.hidden = true; }
+document.addEventListener("mouseover", e => {
+  const t = e.target.closest("[data-tip]");
+  if (t) showTip(t); else hideTip();
+});
+document.addEventListener("focusin", e => {
+  const t = e.target.closest("[data-tip]");
+  if (t) showTip(t);
+});
+document.addEventListener("focusout", hideTip);
+window.addEventListener("scroll", hideTip, { passive: true });
+
+/* ---------- engine legend ---------- */
+$("#legend-engines").innerHTML = ENG.map((e, i) =>
+  '<span class="e"><span class="dot" style="background:' + EHEX[i] + '"></span>' +
+  esc(SHORT[e]) + (i === BI ? ' <span class="base-tag">ratio baseline</span>' : "") + "</span>"
+).join("");
+
+/* ---------- hero chips + findings ---------- */
+function tot(bench, sf, engine){
+  return DATA.totals[bench].find(r => r.sf === sf && r.engine === engine);
+}
+const thAll = tot("TPC-H", "all", "Spark Rust 0.42.1 (tuned)");
+const tdAll = tot("TPC-DS", "all", "Spark Rust 0.42.1 (tuned)");
+const chips = [
+  { k: "TPC-H · all scales · Rust (tuned)", v: fmtR(thAll.ratio) + " DuckDB",
+    d: "88 queries · SF 1–1000 combined", cls: thAll.ratio < 1 ? "good" : "neutral" },
+  { k: "TPC-DS · all scales · Rust (tuned)", v: fmtR(tdAll.ratio) + " DuckDB",
+    d: "396 queries · SF 1–1000 combined · faster than DuckDB", cls: "good" },
+  null, null  // cluster chips filled below
+];
+const SF0 = "100";
+const cl0 = DATA.cluster[SF0];
+const rust0 = cl0[0], gl0 = cl0[1];
+const sp0 = gl0.time / rust0.time;
+chips[2] = { k: "Cluster TPC-DS SF100 · wall time", v: fmtR(sp0) + " faster",
+  d: "Rust " + fmtT(rust0.time) + " vs Gluten " + fmtT(gl0.time) + " · " + DATA.wins[SF0][0] + "/" + (DATA.wins[SF0][0] + DATA.wins[SF0][1]) + " resolved queries won", cls: "good" };
+const SF9 = "10000";
+const cl9 = DATA.cluster[SF9];
+const rust9 = cl9[0], gl9 = cl9[1];
+const sp9 = rust9.time / gl9.time;
+chips[3] = { k: "Cluster TPC-DS SF10000 · wall time", v: fmtR(sp9) + " faster (Gluten)",
+  d: "Rust " + fmtT(rust9.time) + " vs Gluten " + fmtT(gl9.time) + " · Gluten wins " + DATA.wins[SF9][1] + " of " + (DATA.wins[SF9][0] + DATA.wins[SF9][1]) + " resolved", cls: "bad" };
+$("#chips").innerHTML = chips.map(c =>
+  '<div class="chip ' + c.cls + '"><div class="k">' + esc(c.k) + '</div><div class="v">' + esc(c.v) +
+  '</div><div class="d">' + esc(c.d) + "</div></div>").join("");
+
+const cpuRatio0 = gl0.cpuHours / rust0.cpuHours;
+$("#findings").innerHTML = [
+  "<b>TPC-H, single node:</b> DuckDB is fastest at every scale. Spark Rust (tuned) sits at <span class='m'>1.24× / 1.08× / 1.03× / 1.05×</span> DuckDB for SF 1 / 10 / 100 / 1000 — within 5% from SF100 up — while Gluten trails <span class='m'>1.8×–53×</span> and Spark 4.2 <span class='m'>2.3×–50×</span>.",
+  "<b>TPC-DS, single node:</b> Spark Rust (tuned) overtakes DuckDB at scale — <span class='m'>0.98×</span> at SF100 and <span class='m'>0.96×</span> at SF1000 — while DuckDB keeps the lead at SF1 and SF10 (Rust tuned <span class='m'>1.18× / 1.17×</span>).",
+  "<b>Cluster SF100:</b> Rust completes TPC-DS in <span class='m'>" + fmtT(rust0.time) + "</span> vs Gluten's <span class='m'>" + fmtT(gl0.time) + "</span> (<span class='m'>" + fmtR(sp0) + "</span> faster) using <span class='m'>" + fmtR(cpuRatio0) + "</span> less CPU (" + rust0.cpuHours.toFixed(1) + " vs " + gl0.cpuHours.toFixed(1) + " CPU-hours), winning " + DATA.wins[SF0][0] + " of " + (DATA.wins[SF0][0] + DATA.wins[SF0][1]) + " resolved queries.",
+  "<b>Cluster trend reverses with scale:</b> the head-to-head evens at SF1000 (<span class='m'>48–51</span>) and Gluten leads at SF10000 (<span class='m'>58–36</span>, 5 queries unresolved), finishing <span class='m'>" + fmtT(gl9.time) + "</span> vs Rust's <span class='m'>" + fmtT(rust9.time) + "</span>."
+].map((t, i) => '<li data-n="' + (i + 1) + '">' + t + "</li>").join("");
+
+/* ---------- totals tables ---------- */
+const SFS = ["1", "10", "100", "1000", "all"];
+function totalsTable(bench){
+  const rows = DATA.totals[bench];
+  const n = rows.length ? rows[0].n : null;
+  let h = '<h3>' + bench + (n ? ' — ' + n + ' queries per scale factor' : '') + '</h3>' +
+    '<div class="scroll-x"><table><caption>' + esc(bench) + ' suite wall-clock totals by scale factor, single node</caption>' +
+    "<thead><tr><th scope='col'>Scale</th>" +
+    ENG.map(e => "<th scope='col'>" + esc(SHORT[e]) + "</th>").join("") + "</tr></thead><tbody>";
+  for (const sf of SFS){
+    const isAll = sf === "all";
+    const cells = ENG.map(e => rows.find(r => r.sf === sf && r.engine === e));
+    const best = Math.min(...cells.map(c => c && c.time != null ? c.time : Infinity));
+    h += "<tr" + (isAll ? " class='allrow'" : "") + "><th scope='row'>SF " + esc(sf) + "</th>";
+    ENG.forEach((e, i) => {
+      const c = cells[i];
+      if (!c || c.time == null){ h += "<td class='num'>—</td>"; return; }
+      const isBest = c.time === best;
+      const barW = Math.min(100, Math.max(4, Math.log2(Math.max(c.ratio, 0.25) / 0.25) / Math.log2(64) * 100));
+      h += "<td class='num" + (isBest ? " best" : "") + "' style='position:relative'>" +
+        "<span class='bar' style='--w:" + barW.toFixed(0) + "%'>" + fmtT(c.time) +
+        (c.canonical == null ? "<span class='dag' data-tip='No canonical total in the source data: the run includes a blocked/failed query or incomplete validation. The time shown is the raw observed sum.'>†</span>" : "") +
+        "</span>" +
+        "<span class='ratio " + rClass(c.ratio) + "'>" + fmtR(c.ratio) + " DuckDB</span>" +
+        (isAll && c.matched != null && Math.abs(c.matched - c.ratio) > 1e-9 ?
+          "<span class='matched'>matched " + fmtR(c.matched) + "</span>" : "") +
+        "</td>";
+    });
+    h += "</tr>";
+  }
+  h += "</tbody></table></div>";
+  return h;
+}
+$("#totals-tables").innerHTML = totalsTable("TPC-H") + totalsTable("TPC-DS");
+
+/* ---------- per-query heatmap ---------- */
+const pqState = { bench: "TPC-H", sf: "100" };
+function seg(el, items, get, set){
+  el.innerHTML = items.map(v =>
+    "<button type='button' aria-pressed='" + (get() === v) + "'>" + esc(v) + "</button>").join("");
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    set(b.textContent);
+    [...el.children].forEach(c => c.setAttribute("aria-pressed", c.textContent === get()));
+  });
+}
+seg($("#pq-bench"), ["TPC-H", "TPC-DS"], () => pqState.bench, v => { pqState.bench = v; renderPQ(); });
+seg($("#pq-sf"), ["1", "10", "100", "1000"], () => pqState.sf, v => { pqState.sf = v; renderPQ(); });
+
+function renderPQ(){
+  const bench = pqState.bench, sf = pqState.sf;
+  const rows = DATA.single[bench][sf];
+  const n = rows.length;
+  /* per-engine stats */
+  const stats = ENG.map((e, i) => ({ e, i, faster: 0, par: 0, slower: 0, blocked: 0, patched: 0 }));
+  for (const r of rows){
+    const base = r.times[BI];
+    ENG.forEach((e, i) => {
+      const m = r.markers[i];
+      if (m === "B"){ stats[i].blocked++; return; }
+      if (m === "P") stats[i].patched++;
+      if (base == null || r.times[i] == null) return;
+      const ratio = r.times[i] / base;
+      if (ratio < 0.99) stats[i].faster++;
+      else if (ratio <= 1.01) stats[i].par++;
+      else stats[i].slower++;
+    });
+  }
+  $("#pq-stats").innerHTML = stats.map((s, i) =>
+    '<span class="e"><span class="dot" style="background:' + EHEX[i] + '"></span><b>' + esc(SHORT[s.e]) +
+    '</b><span class="sep">·</span>faster ' + s.faster + " · parity " + s.par + " · slower " + s.slower +
+    (s.blocked ? ' · <span style="color:var(--warn)">blocked ' + s.blocked + "</span>" : "") +
+    (s.patched ? ' · <span style="color:var(--violet)">patched ' + s.patched + "</span>" : "") +
+    "</span>").join("");
+
+  let h = "<thead><tr><th scope='col' style='text-align:left'>Query</th>" +
+    ENG.map((e, i) => "<th scope='col'>" + esc(SHORT[e]) + (i === BI ? " <span class='base-tag'>baseline</span>" : "") + "</th>").join("") +
+    "</tr></thead><tbody>";
+  for (const r of rows){
+    const base = r.times[BI];
+    h += "<tr><th scope='row'>Q" + r.q + "</th>";
+    ENG.forEach((e, i) => {
+      const t = r.times[i], m = r.markers[i];
+      if (t == null){ h += "<td>—</td>"; return; }
+      const ratio = (i === BI || base == null) ? 1 : t / base;
+      const bg = i === BI ? "#1b222c" : heatColor(ratio);
+      const mk = m === "B" ? "<span class='mk' data-tip='Blocked/failed validation run for this engine: the duration shown was observed, but the result did not validate.'>B</span>"
+        : m === "P" ? "<span class='mk p' data-tip='Observed on a patched build of the engine.'>P</span>" : "";
+      h += "<td class='" + (i === BI ? "base" : "") + "' style='background:" + bg + "'>" +
+        "<span class='t'>" + fmtT(t) + mk + "</span>" +
+        (i === BI ? "" : "<span class='r'>" + fmtR(ratio) + " DuckDB</span>") + "</td>";
+    });
+    h += "</tr>";
+  }
+  h += "</tbody></table>";
+  $("#pq-table").innerHTML = h;
+  if (!document.getElementById("pq-cap")){
+    const cap = document.createElement("div");
+    cap.id = "pq-cap";
+    cap.className = "footnote";
+    cap.style.margin = "0 0 10px";
+    $("#pq-stats").after(cap);
+  }
+  document.getElementById("pq-cap").textContent =
+    bench + " at scale factor " + sf + " — " + n + " queries, single node. Colour encodes the ratio to DuckDB.";
+}
+
+/* ---------- cluster ---------- */
+const clState = { sf: "100" };
+seg($("#cl-sf"), ["100", "1000", "10000"], () => clState.sf, v => { clState.sf = v; renderCL(); });
+const CLSHORT = { "Spark Rust 0.42.1": "Spark Rust 0.42.1", "Spark 4.1.1 Gluten": "Spark 4.1.1 Gluten" };
+
+function renderCL(){
+  const sf = clState.sf;
+  const agg = DATA.cluster[sf];
+  const rust = agg.find(a => a.engine.includes("Rust"));
+  const gl = agg.find(a => a.engine.includes("Gluten"));
+  const rows = DATA.clusterQueries[sf];
+  const wins = DATA.wins[sf];
+  const resolved = wins[0] + wins[1];
+  const sp = gl.time / rust.time;
+  const rustFaster = sp >= 1;
+
+  $("#cl-cards").innerHTML =
+    '<div class="card hero-card' + (rustFaster ? "" : " losing") + '"><div class="k">Head-to-head</div>' +
+    '<div class="v">' + (rustFaster ? "Rust " : "Gluten ") + fmtR(rustFaster ? sp : 1 / sp) + " faster</div>" +
+    '<div class="d">wall time, TPC-DS SF' + esc(sf) + " (ratio Rust ÷ Gluten " + fmtR(rust.time / gl.time) + ")</div></div>" +
+    '<div class="card"><div class="k">Rust wall time</div><div class="v">' + fmtT(rust.time) + "</div>" +
+    '<div class="d">' + hm(rust.time) + " · " + rust.n + " queries</div></div>" +
+    '<div class="card"><div class="k">Gluten wall time</div><div class="v">' + fmtT(gl.time) + "</div>" +
+    '<div class="d">' + hm(gl.time) + " · " + gl.n + " queries</div></div>" +
+    '<div class="card"><div class="k">CPU-hours</div><div class="v">' + rust.cpuHours.toFixed(1) + " <small>vs " + gl.cpuHours.toFixed(1) + "</small></div>" +
+    '<div class="d">Rust vs Gluten · ' + fmtR(gl.cpuHours / rust.cpuHours) + " less CPU for Rust</div></div>" +
+    '<div class="card"><div class="k">Mean cores used</div><div class="v">' + rust.cores.toFixed(1) + " <small>vs " + gl.cores.toFixed(1) + "</small></div>" +
+    '<div class="d">of 128 available</div></div>' +
+    '<div class="card"><div class="k">Queries won</div><div class="v">' + wins[0] + " <small>vs " + wins[1] + "</small></div>" +
+    '<div class="d">Rust vs Gluten · ' + (99 - resolved) + " unresolved</div></div>";
+
+  /* strip */
+  const vmax = Math.max(...rows.flatMap(r => [r.r, r.g].filter(v => v != null)), 1);
+  const strip = $("#cl-strip"), stripX = $("#cl-strip-x");
+  let sb = "", sx = "";
+  for (const r of rows){
+    const v = Math.max(r.r ?? 0, r.g ?? 0);
+    const hgt = v > 0 ? (8 + 92 * Math.log1p(v) / Math.log1p(vmax)) : 2;
+    const cls = (r.r == null && r.g == null) ? "none" : ((r.g ?? Infinity) > (r.r ?? Infinity) ? "" : "g");
+    const tipTxt = "Q" + r.q + " · Rust " + (r.r == null ? "—" : fmtT(r.r)) + " · Gluten " + (r.g == null ? "—" : fmtT(r.g)) +
+      " · ratio " + fmtR(r.ratio) + " · " + esc(r.status);
+    sb += '<div class="bar ' + cls + '" style="height:' + hgt.toFixed(1) + '%" title="' + esc(tipTxt) + '"></div>';
+    sx += "<i style='background:" + (cls === "none" ? "var(--line2)" : cls === "g" ? "var(--rose)" : "var(--teal)") + "'></i>";
+  }
+  strip.innerHTML = sb;
+  stripX.innerHTML = sx;
+
+  /* aggregate table */
+  const cols = [
+    ["n", "Queries", v => v.n],
+    ["time", "Wall time (s)", v => fmtT(v.time)],
+    ["cpu", "CPU time (s)", v => Math.round(v.cpu).toLocaleString("en-US")],
+    ["cores", "Avg cores", v => v.cores.toFixed(2)],
+    ["memtime", "Mem-time (s)", v => Math.round(v.memtime).toLocaleString("en-US")],
+    ["cpuHours", "CPU-hours", v => v.cpuHours.toFixed(2)],
+    ["memHours", "Mem-hours", v => v.memHours.toFixed(2)],
+    ["mean", "Mean (s)", v => v.mean.toFixed(2)],
+    ["p50", "P50 (s)", v => v.p50.toFixed(2)],
+    ["p95", "P95 (s)", v => v.p95.toFixed(2)],
+    ["max", "Max (s)", v => v.max.toFixed(2)]
+  ];
+  $("#cl-agg").innerHTML = "<table><caption>Cluster suite aggregates — TPC-DS SF" + esc(sf) + "</caption>" +
+    "<thead><tr><th scope='col' style='text-align:left'>Engine</th>" +
+    cols.map(c => "<th scope='col'>" + c[1] + "</th>").join("") + "</tr></thead><tbody>" +
+    agg.map(a => "<tr><th scope='row' style='color:var(--text)'>" + esc(CLSHORT[a.engine]) + "</th>" +
+      cols.map(c => "<td class='num'>" + c[2](a) + "</td>").join("") + "</tr>").join("") +
+    "</tbody></table>";
+
+  /* per-query table */
+  $("#cl-table").innerHTML = "<table><caption>Per-query cluster results — TPC-DS SF" + esc(sf) +
+    " · ratio = Rust ÷ Gluten</caption>" +
+    "<thead><tr><th scope='col' style='text-align:left'>Query</th><th scope='col'>Rust (s)</th>" +
+    "<th scope='col'>Gluten (s)</th><th scope='col'>Ratio</th><th scope='col' style='text-align:left'>Status</th></tr></thead><tbody>" +
+    rows.map(r => {
+      const rc = r.ratio == null ? "par" : (r.ratio < 1 ? "good" : "bad");
+      return "<tr><td class='num' style='text-align:left'>Q" + r.q + "</td>" +
+        "<td class='num'>" + (r.r == null ? "—" : r.r.toFixed(2)) + "</td>" +
+        "<td class='num'>" + (r.g == null ? "—" : r.g.toFixed(2)) + "</td>" +
+        "<td class='num'><span class='ratio " + rc + "'>" + fmtR(r.ratio) + "</span></td>" +
+        "<td style='text-align:left;white-space:normal;font-size:12px;color:var(--muted)'>" + esc(r.status) + "</td></tr>";
+    }).join("") + "</tbody></table>";
+
+  const unresolved = rows.length - resolved;
+  const rustOnly = rows.filter(r => r.status.includes("only") || r.status.includes("timeout")).length;
+  $("#cl-footnote").innerHTML =
+    "<b>Reading the numbers.</b> Wall-time totals are the sum of validated per-query times; at SF" +
+    esc(sf) + " they exclude " + rustOnly + " unvalidated “Rust-only” observation" + (rustOnly === 1 ? "" : "s") +
+    " (single-observation or rejected-repeat runs). Mean / P50 / P95 / Max columns are reproduced verbatim from the" +
+    " source summary and could not be re-derived from the per-query records, so they likely describe a different" +
+    " query subset. " + (unresolved > 0 ? unresolved + " quer" + (unresolved === 1 ? "y is" : "ies are") +
+    " unresolved in the wins count (no valid paired result)." : "All 99 queries resolved in the wins count.");
+}
+
+/* ---------- hardware + caveats + footer ---------- */
+const hw = DATA.hardware;
+$("#hw-cards").innerHTML =
+  '<div class="hw"><div class="k">Single node</div><div class="v">' + esc(hw.single_node.sku) + "</div>" +
+  '<div class="d">' + hw.single_node.cores + " vCPU · " + hw.single_node.ram_gb + " GB RAM</div></div>" +
+  '<div class="hw"><div class="k">Cluster workers</div><div class="v">' + hw.cluster_workers.count + " × " + esc(hw.cluster_workers.sku) + "</div>" +
+  '<div class="d">' + hw.cluster_workers.total_cores + " cores · " + hw.cluster_workers.total_ram_gb + " GB RAM total</div></div>" +
+  '<div class="hw"><div class="k">Provenance</div><div class="v" style="font-size:13.5px">' + esc(hw.provenance) + "</div>" +
+  '<div class="d">cluster head node: ' + (hw.cluster_head_node ? esc(hw.cluster_head_node) : "not specified") + "</div></div>";
+
+$("#caveats").innerHTML = [
+  "<b>Blocked queries.</b> TPC-H SF1000 Spark 4.2 (Q8, Q9, Q21) and TPC-DS SF1000 Gluten (Q23) carry <b>B</b> markers; the affected engines have no canonical total at those scales, and the “all” rows fall back to matched ratios.",
+  "<b>Patched-build runs.</b> TPC-DS SF1000 Rust (tuned) Q18 and Q69 were observed on a patched build (<b>P</b>); its SF1000 canonical total (10,082 s) differs slightly from the raw sum (10,074 s).",
+  "<b>Cluster totals exclude unvalidated runs.</b> At SF10000, four Rust-only observations (Q39, Q67, Q78, Q95 — 3,265 s combined) and the Q23 dual failure are outside the validated totals.",
+  "<b>Different query counts.</b> Single-node TPC-H covers 22 queries and TPC-DS 99; the cluster section covers TPC-DS only, so single-node and cluster figures are not directly comparable.",
+  "<b>Hardware is user-provided.</b> Machine specifications come from the source document's stated provenance and were not independently verified.",
+  "<b>One engine pair on the cluster.</b> The cluster run compares Spark Rust 0.42.1 against Spark 4.1.1 Gluten only; DuckDB and Spark 4.2 were not run on the cluster."
+].map(t => "<li>" + t + "</li>").join("");
+
+const sha = DATA.sha256 || "";
+$("#footer").innerHTML =
+  "Generated from <code>" + esc(DATA.source || "source dataset") + "</code> · sha256 " +
+  "<code title='" + esc(sha) + "'>" + esc(sha.slice(0, 12)) + "…</code> · data dated 2026-09-25 · " +
+  "self-contained HTML, no external resources";
+
+/* ---------- init ---------- */
+renderPQ();
+renderCL();
+window.addEventListener("beforeprint", () => {
+  document.querySelectorAll("details").forEach(d => d.open = true);
+});
+</script>
+</body>
+</html>

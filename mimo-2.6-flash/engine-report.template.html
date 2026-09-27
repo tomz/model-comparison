@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Comparison — TPC-H / TPC-DS Report</title>
+<style>
+  :root{
+    --bg:#faf9f7; --paper:#ffffff; --ink:#1c1917; --ink-2:#57534e; --ink-3:#6f675e;
+    --line:#e7e2db; --line-2:#f0ece6;
+    --rust:#9a3412; --rust-2:#ea580c; --rust-bg:#fff4ec;
+    --blue:#1d4ed8; --blue-bg:#eff4ff;
+    --slate:#475569; --slate-bg:#f1f5f9;
+    --ok:#15803d; --ok-bg:#ecfdf3;
+    --warn:#b45309; --warn-bg:#fffbeb;
+    --bad:#b91c1c; --bad-bg:#fef2f2;
+    --mono:"SF Mono",ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --disp:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:15.5px;line-height:1.55;font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 28px}
+  h1,h2,h3{font-family:var(--disp);font-weight:650;letter-spacing:-.011em;margin:0}
+
+  /* ---- masthead ---- */
+  header.mast{border-bottom:2px solid var(--ink);background:
+    linear-gradient(to bottom,#fdfcfb,var(--bg))}
+  .mast-inner{padding:34px 0 0}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--rust);font-weight:600}
+  h1{font-size:clamp(26px,3.4vw,38px);margin-top:8px;line-height:1.12}
+  .dek{color:var(--ink-2);max-width:74ch;margin:10px 0 0;font-size:16px}
+  .mast-stats{display:flex;flex-wrap:wrap;gap:0 34px;margin:22px 0 0;
+    padding:14px 0 0;border-top:1px solid var(--line)}
+  .mstat{padding-bottom:16px}
+  .mstat b{display:block;font-family:var(--disp);font-size:24px;font-weight:680;
+    line-height:1.1}
+  .mstat span{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink-3)}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 0 14px;
+    border-top:1px dashed var(--line);font-family:var(--mono);font-size:11.5px;
+    color:var(--ink-2)}
+  .lg{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:11px;height:11px;border-radius:3px;flex:none}
+
+  /* ---- nav ---- */
+  nav.secnav{position:sticky;top:0;z-index:30;background:rgba(250,249,247,.94);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .secnav ul{display:flex;gap:26px;list-style:none;margin:0;padding:0;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;
+    text-transform:uppercase}
+  .secnav a{display:block;padding:12px 0;color:var(--ink-2);text-decoration:none;
+    border-bottom:2px solid transparent}
+  .secnav a:hover{color:var(--rust);border-color:var(--rust)}
+
+  /* ---- sections ---- */
+  section{padding:52px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:6px}
+  .sec-head h2{font-size:23px}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--rust);font-weight:700}
+  .sec-note{color:var(--ink-2);max-width:88ch;margin:14px 0 22px;font-size:15px}
+  .sec-note code{font-family:var(--mono);font-size:.9em;background:var(--line-2);
+    padding:1px 5px;border-radius:4px}
+
+  /* ---- controls ---- */
+  .controls{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin:4px 0 20px}
+  .seg{display:inline-flex;background:var(--line-2);border:1px solid var(--line);
+    border-radius:9px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;font-family:var(--mono);font-size:12px;
+    padding:6px 14px;border-radius:7px;cursor:pointer;color:var(--ink-2);
+    letter-spacing:.03em;transition:all .13s}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{background:var(--paper);color:var(--rust);
+    font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .seg-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink-3);margin-right:-12px}
+  select{font-family:var(--mono);font-size:12.5px;padding:7px 11px;
+    border:1px solid var(--line);border-radius:9px;background:var(--paper);
+    color:var(--ink);cursor:pointer}
+
+  /* ---- cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+    gap:14px;margin-bottom:26px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    padding:15px 17px 13px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--line)}
+  .card.hl::before{background:var(--rust)}
+  .card.ok::before{background:var(--ok)}
+  .card.warn::before{background:var(--warn)}
+  .card .lab{font-family:var(--mono);font-size:10px;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--ink-3)}
+  .card .val{font-family:var(--disp);font-size:29px;font-weight:680;line-height:1.15;
+    margin-top:5px}
+  .card .val small{font-size:15px;font-weight:600;color:var(--ink-2)}
+  .card .sub{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.35}
+  .val.rust{color:var(--rust)} .val.ok{color:var(--ok)} .val.warn{color:var(--warn)}
+
+  /* ---- panels & charts ---- */
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px 14px;margin-bottom:26px;box-shadow:0 1px 2px rgba(28,25,23,.04)}
+  .panel h3{font-size:14.5px;font-weight:650}
+  .panel .ph{display:flex;justify-content:space-between;align-items:baseline;
+    gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .panel .hint{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .chart{width:100%;display:block}
+  .axis-note{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);
+    padding:4px 0 6px;letter-spacing:.05em}
+  .tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);
+    color:#fafaf9;font-family:var(--mono);font-size:11.5px;line-height:1.5;
+    padding:7px 10px;border-radius:7px;opacity:0;transition:opacity .1s;
+    max-width:320px;white-space:pre-line}
+  .tip.on{opacity:1}
+  .tip b{color:#fdba74}
+
+  /* ---- tables ---- */
+  .tbl-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px}
+  th,td{padding:7px 10px;text-align:right;white-space:nowrap;
+    border-bottom:1px solid var(--line-2)}
+  thead th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-3);border-bottom:1.5px solid var(--ink);font-weight:600;
+    position:sticky;top:41px;background:var(--paper);z-index:5}
+  tbody tr:hover{background:#fbf9f6}
+  td.l,th.l{text-align:left}
+  tbody tr.total-row{border-top:1.5px solid var(--ink);font-weight:700;
+    background:#fcfbf9}
+  .q{font-weight:700;color:var(--rust)}
+  .best{color:var(--ok);font-weight:700}
+  .fast{background:var(--ok-bg);border-radius:4px;padding:2px 6px;
+    display:inline-block;font-weight:700}
+  .cell2{display:flex;gap:7px;justify-content:flex-end}
+  .cell2 i{font-style:normal;color:var(--ink-3)}
+  .subv{display:block;font-size:10.5px;color:var(--ink-3);margin-top:1px}
+  .pill{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:99px;
+    letter-spacing:.04em;font-weight:600}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .pill.bad{background:var(--bad-bg);color:var(--bad)}
+  .pill.mute{background:var(--line-2);color:var(--ink-3)}
+  .why{display:block;font-family:var(--sans);font-size:12px;color:var(--ink-2);
+    white-space:normal;max-width:56ch;margin-top:3px;line-height:1.4}
+  td.left-why{text-align:left}
+  .foot{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-3);padding:8px 0 2px}
+
+  /* ---- callouts ---- */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .callout{background:var(--rust-bg);border:1px solid #f4d7c4;border-radius:12px;
+    padding:16px 19px;font-size:14.5px;line-height:1.6;color:#431407;
+    margin:24px 0 6px}
+  .callout b{color:var(--rust)}
+  .findings{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  @media(max-width:900px){.findings{grid-template-columns:1fr}}
+  .finding{background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    padding:15px 17px}
+  .finding h4{font-family:var(--disp);font-size:14px;font-weight:650;margin:0 0 5px}
+  .finding p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.55}
+  footer{border-top:2px solid var(--ink);margin-top:60px;padding:22px 0 44px;
+    font-family:var(--mono);font-size:11px;color:var(--ink-3);
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap mast-inner">
+    <div class="kicker">Benchmark Report &middot; self-contained &middot; offline</div>
+    <h1>Engine Comparison &mdash; TPC-H &amp; TPC-DS</h1>
+    <p class="dek">Wall-time comparison of five engines: Spark with a Rust engine
+    (default and tuned profiles), DuckDB as the single-node baseline, Spark 4.1.1
+    with Gluten, and vanilla Spark 4.2. Single-node runs at SF1&ndash;SF1000;
+    cluster runs at SF100&ndash;SF10000.</p>
+    <div class="mast-stats">
+      <div class="mstat"><b id="m-engines"></b><span>engines</span></div>
+      <div class="mstat"><b>2</b><span>suites</span></div>
+      <div class="mstat"><b>22 / 99</b><span>queries per suite (H / DS)</span></div>
+      <div class="mstat"><b>SF1&ndash;1000</b><span>single-node scale factors</span></div>
+      <div class="mstat"><b>SF100&ndash;10000</b><span>cluster scale factors</span></div>
+      <div class="mstat"><b id="hw-sn" style="font-size:15.5px;font-family:var(--mono);font-weight:600"></b><span>single node</span></div>
+      <div class="mstat"><b id="hw-cl" style="font-size:15.5px;font-family:var(--mono);font-weight:600"></b><span>cluster</span></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</header>
+
+<nav class="secnav">
+  <div class="wrap"><ul>
+    <li><a href="#totals">1 &middot; Totals</a></li>
+    <li><a href="#single">2 &middot; Per query</a></li>
+    <li><a href="#cluster">3 &middot; Cluster</a></li>
+    <li><a href="#notes">4 &middot; Notes</a></li>
+  </ul></div>
+</nav>
+
+<main class="wrap">
+
+<!-- ============ 1. TOTALS ============ -->
+<section id="totals">
+  <div class="sec-head"><span class="sec-num">01</span>
+    <h2>Totals across all queries</h2></div>
+  <p class="sec-note">Whole-suite wall time per scale factor from the summary
+  totals. Ratios are relative to <b>DuckDB 1.5.5 = 1.00&times;</b>; at
+  <code>all</code> a <b>matched</b> ratio is also reported, restricted to
+  queries with results on both sides.</p>
+
+  <div class="controls">
+    <span class="seg-label">Suite</span>
+    <div class="seg" id="t-suite">
+      <button data-v="TPC-H">TPC-H</button><button data-v="TPC-DS">TPC-DS</button>
+    </div>
+  </div>
+
+  <div class="cards" id="t-cards"></div>
+
+  <div class="panel">
+    <div class="ph"><h3>Ratio to DuckDB baseline per scale factor</h3>
+      <span class="hint">log scale &middot; lower is better &middot; line = 1.00&times;</span></div>
+    <div id="t-chart"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><h3>Total wall time by scale factor</h3>
+      <span class="hint">seconds &middot; fastest per row highlighted</span></div>
+    <div class="tbl-wrap"><table id="t-tbl"></table></div>
+    <div class="foot"><span id="t-foot-l"></span><span>source: totals[]</span></div>
+  </div>
+</section>
+
+<!-- ============ 2. PER-QUERY SINGLE NODE ============ -->
+<section id="single">
+  <div class="sec-head"><span class="sec-num">02</span>
+    <h2>Per-query &mdash; single node</h2></div>
+  <p class="sec-note">Per-query wall time for Spark Rust (3 repeats, mean) versus
+  Spark Gluten (2 repeats, mean). Marker letters (e.g. <b>B</b>, <b>P</b>) are
+  reproduced verbatim from the source data &mdash; the dataset does not define
+  their meanings. They appear on chart labels and table rows to flag repeats
+  that were not clean runs.</p>
+
+  <div class="controls">
+    <span class="seg-label">Suite</span>
+    <div class="seg" id="s-suite">
+      <button data-v="TPC-H">TPC-H</button><button data-v="TPC-DS">TPC-DS</button>
+    </div>
+    <span class="seg-label">SF</span>
+    <div class="seg" id="s-sf"></div>
+    <span class="seg-label">Sort</span>
+    <div class="seg" id="s-sort">
+      <button data-v="q">query</button><button data-v="ratio">ratio</button>
+      <button data-v="rust">rust &darr;</button><button data-v="gluten">gluten &darr;</button>
+    </div>
+  </div>
+
+  <div class="cards" id="s-cards"></div>
+
+  <div class="panel">
+    <div class="ph"><h3>Wall time by query (log scale)</h3>
+      <span class="hint">bars = mean of repeats &middot; marker letters = correctness events</span></div>
+    <div id="s-chart"></div>
+    <div class="axis-note">LOG SCALE &middot; SECONDS</div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><h3>Detail</h3>
+      <span class="hint">all repeats listed &middot; &Delta; = gluten &minus; rust</span></div>
+    <div class="tbl-wrap"><table id="s-tbl"></table></div>
+    <div class="foot"><span id="s-foot"></span><span>source: single[]</span></div>
+  </div>
+</section>
+
+<!-- ============ 3. CLUSTER ============ -->
+<section id="cluster">
+  <div class="sec-head"><span class="sec-num">03</span>
+    <h2>Cluster runs</h2></div>
+  <p class="sec-note">99-query runs on Spark Rust versus Spark Gluten at cluster
+  scale factors. Per-query tables include CPU time, peak memory-time and
+  tail latencies; rows without a matched DuckDB baseline still report
+  wall time.</p>
+
+  <div class="controls">
+    <span class="seg-label">SF</span>
+    <div class="seg" id="c-sf"></div>
+    <span class="seg-label">Chart</span>
+    <select id="c-metric">
+      <option value="time">Wall time (s)</option>
+      <option value="ratio">Ratio rust / gluten</option>
+      <option value="cpu">CPU time (s)</option>
+      <option value="memtime">Memory-time (GB&middot;s)</option>
+      <option value="p95">p95 latency (s)</option>
+    </select>
+  </div>
+
+  <div class="cards" id="c-cards"></div>
+
+  <div class="panel">
+    <div class="ph"><h3 id="c-chart-title">Wall time by query</h3>
+      <span class="hint" id="c-chart-hint">log scale &middot; both engines</span></div>
+    <div id="c-chart"></div>
+    <div class="axis-note">LOG SCALE &middot; 99 QUERIES</div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><h3>Per-query detail</h3>
+      <span class="hint">status from clusterQueries[]</span></div>
+    <div class="tbl-wrap"><table id="c-tbl"></table></div>
+    <div class="foot"><span id="c-foot"></span><span>source: clusterQueries[], cluster[]</span></div>
+  </div>
+</section>
+
+<!-- ============ 4. NOTES ============ -->
+<section id="notes">
+  <div class="sec-head"><span class="sec-num">04</span>
+    <h2>Findings &amp; caveats</h2></div>
+  <div class="findings">
+    <div class="finding"><h4>DuckDB anchors single-node</h4>
+      <p>DuckDB is the <code>ratio = 1.00</code> baseline on single-node.
+      Spark Rust lands close to it (matched ratios near 1&times;), while Gluten
+      and vanilla Spark 4.2 trail by multiples at small scale factors.</p></div>
+    <div class="finding"><h4>Scale inverts the cluster ranking</h4>
+      <p>Query-level win counts between Rust and Gluten shift with scale factor
+      &mdash; check the wins card for the selected SF before reading the
+      per-query chart as a uniform lead.</p></div>
+    <div class="finding"><h4>Marker letters</h4>
+      <p>Individual repeats carry marker letters (<b>B</b>, <b>P</b>) copied
+      verbatim from the source data. Their meanings are not defined in the
+      dataset, so they are displayed rather than interpreted &mdash; a faster
+      wall time carrying markers should be read with caution.</p></div>
+    <div class="finding"><h4>Gaps and baselines</h4>
+      <p>Some rows report <code>gap</code> (result mismatch) or
+      <em>no matched DuckDB baseline</em>. Matched ratios exclude unmatched
+      queries, so totals and matched figures are deliberately different numbers.</p></div>
+  </div>
+  <div class="callout"><b>Methodology.</b> Single-node times are means of
+  3 repeats (Spark Rust) and 2 repeats (Gluten) per query; suite totals come
+  from the summary's <code>totals</code> block rather than summing per-query
+  means (they include run overhead). Cluster metrics are as reported by
+  <code>cluster[]</code> / <code>clusterQueries[]</code>. This page is a
+  static artifact &mdash; all data is embedded; no scripts or fonts are loaded
+  from the network.</div>
+</section>
+
+</main>
+
+<footer>
+  <span>engine-comparison &middot; TPC-H / TPC-DS &middot; static HTML report</span>
+  <span id="foot-meta"></span>
+</footer>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const D = /*__DATA__*/ null;
+const $ = id => document.getElementById(id);
+
+/* ---------- constants from data ---------- */
+const ENGINES = D.engines;
+const RUST   = 'Spark Rust 0.42.1 (default)';
+const TUNED  = 'Spark Rust 0.42.1 (tuned)';
+const DUCK   = 'DuckDB 1.5.5';
+const GLUTEN = 'Spark 4.1.1 Gluten';
+const SPARK  = 'Spark 4.2';
+const CLR = {
+  [RUST]:'#9a3412', [TUNED]:'#ea580c', [DUCK]:'#1d4ed8',
+  [GLUTEN]:'#475569', [SPARK]:'#94a3b8',
+  'rust':'#9a3412', 'gluten':'#475569',
+  r:'#9a3412', g:'#475569', ratio:'#9a3412'
+};
+const COL2 = ['#9a3412','#475569'];           /* rust, gluten for paired charts */
+
+/* ---------- utils ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (v,d=2) => v==null ? '&mdash;' : v.toLocaleString('en-US',
+  {minimumFractionDigits:d, maximumFractionDigits:d});
+const secs = v => v==null ? '&mdash;' : v>=1000 ? v.toLocaleString('en-US',{maximumFractionDigits:0})
+  : v>=100 ? v.toFixed(1) : v>=1 ? v.toFixed(2) : v.toFixed(3);
+const ratioCls = v => v==null ? '' : v<0.98 ? 'best' : '';
+const geo = a => { const v=a.filter(x=>x!=null&&x>0); return v.length?
+  Math.exp(v.reduce((s,x)=>s+Math.log(x),0)/v.length) : null; };
+const tip = $('tip');
+function showTip(ev, html){ tip.innerHTML=html; tip.classList.add('on');
+  const pad=14, w=tip.offsetWidth, h=tip.offsetHeight;
+  let x=ev.clientX+pad, y=ev.clientY+pad;
+  if(x+w>innerWidth-8) x=ev.clientX-w-pad;
+  if(y+h>innerHeight-8) y=ev.clientY-h-pad;
+  tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.classList.remove('on'); }
+function seg(el, vals, cur, cb, label){
+  el.innerHTML = vals.map(v=>`<button data-v="${v}" aria-pressed="${v==cur}">${label?label(v):v}</button>`).join('');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); cb(b.dataset.v); });
+}
+const NS='http://www.w3.org/2000/svg';
+const svgEl = (n,a={}) => { const e=document.createElementNS(NS,n);
+  for(const k in a) e.setAttribute(k,a[k]); return e; };
+
+/* ---------- masthead ---------- */
+$('m-engines').textContent = ENGINES.length;
+$('legend').innerHTML = ENGINES.map(e =>
+  `<span class="lg"><span class="sw" style="background:${CLR[e]}"></span>${esc(e)}</span>`).join('');
+$('foot-meta').textContent = `${ENGINES.length} engines · source ${D.source}` +
+  (D.sha256 ? ` · sha256 ${D.sha256.slice(0,12)}…` : '');
+/* hardware */
+(function(){
+  const hw=D.hardware||{};
+  if(hw.single_node){ const s=hw.single_node;
+    $('hw-sn').textContent = `${s.sku} · ${s.cores}c / ${s.ram_gb} GB`; }
+  if(hw.cluster_workers){ const c=hw.cluster_workers;
+    $('hw-cl').textContent = `${c.count}× ${c.sku} · ${c.total_cores}c / ${(c.total_ram_gb/1024).toFixed(0)} TB`; }
+})();
+
+/* ================= 1. TOTALS ================= */
+let tSuite = 'TPC-H';
+const SUITES = Object.keys(D.totals);
+const ALLSF = sf => String(sf)==='all';
+function tRows(){ const rs = D.totals[tSuite];
+  const sfs = [...new Set(rs.map(r=>r.sf))];
+  const order = sfs.filter(s=>!ALLSF(s)).sort((a,b)=>+a-+b).concat(sfs.filter(ALLSF));
+  return {rs, order};
+}
+function renderTCards(){
+  const rs = D.totals[tSuite].filter(r=>ALLSF(r.sf));
+  $('t-cards').innerHTML = ENGINES.map(e=>{
+    const r = rs.find(x=>x.engine===e) || {};
+    const v = r.matched ?? r.ratio;
+    const isBaseline = e===DUCK;
+    const lab = (r.matched!=null?'matched ratio':'ratio') + ' · all queries';
+    const cls = isBaseline ? '' : v!=null && v<1.02 ? 'ok' : v!=null && v>1.5 ? 'warn' : 'hl';
+    const sub = isBaseline ? 'baseline for single-node ratios'
+      : r.matched!=null ? `incl. gaps: ${fmt(r.ratio,3)}&times;` : 'vs DuckDB';
+    return `<div class="card ${cls}"><div class="lab">${esc(e)}</div>
+      <div class="val ${cls==='ok'?'ok':cls==='warn'?'warn':''}">${fmt(v,3)}<small>&times;</small></div>
+      <div class="sub">${esc(lab)}<br>${sub}</div></div>`;
+  }).join('');
+}
+function renderTChart(){
+  const {rs, order} = tRows();
+  const W=1100, H=340, mL=52, mR=16, mT=14, mB=44;
+  const iw=W-mL-mR, ih=H-mT-mB;
+  const vals = rs.map(r=>r.ratio).filter(v=>v>0);
+  const lo = Math.min(1, ...vals)*0.8, hi = Math.max(...vals)*1.25;
+  const y = v => mT + ih - (Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo))*ih;
+  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`,class:'chart'});
+  const ticks = [0.1,0.25,0.5,1,2,5,10,20,50,100].filter(t=>t>=lo&&t<=hi);
+  ticks.forEach(t=>{
+    svg.appendChild(svgEl('line',{x1:mL,x2:W-mR,y1:y(t),y2:y(t),
+      stroke:t===1?'#1c1917':'#eee9e2','stroke-width':t===1?1.4:1,
+      'stroke-dasharray':t===1?'5 4':''}));
+    const lb=svgEl('text',{x:mL-8,y:y(t)+4,'text-anchor':'end',
+      'font-family':'var(--mono)','font-size':11,fill:'#6f675e'});
+    lb.textContent=t+'×'; svg.appendChild(lb);
+  });
+  const gw = iw/order.length, bw = Math.min(26,(gw-18)/ENGINES.length);
+  order.forEach((sf,gi)=>{
+    const x0 = mL + gi*gw;
+    const gl = svgEl('g');
+    ENGINES.forEach((e,ei)=>{
+      const r = rs.find(x=>x.sf===sf && x.engine===e); if(!r) return;
+      const cx = x0 + gw/2 - (ENGINES.length*bw)/2 + ei*bw;
+      const top = Math.min(y(r.ratio), y(1)), hgt = Math.abs(y(r.ratio)-y(1));
+      const rect = svgEl('rect',{x:cx+1.5,y:top,width:bw-3,height:Math.max(hgt,1),
+        rx:2,fill:CLR[e],opacity:r.engine===DUCK?.45:.92});
+      rect.style.cursor='crosshair';
+      rect.addEventListener('mousemove',ev=>showTip(ev,
+        `<b>${esc(e)}</b>\nSF ${sf} · ${secs(r.time)} s\nratio ${fmt(r.ratio,3)}×`+
+        (r.matched!=null?`\nmatched ${fmt(r.matched,3)}×`:'')));
+      rect.addEventListener('mouseleave',hideTip);
+      gl.appendChild(rect);
+    });
+    const lb=svgEl('text',{x:x0+gw/2,y:H-mB+20,'text-anchor':'middle',
+      'font-family':'var(--mono)','font-size':12,fill:'#57534e'});
+    lb.textContent = ALLSF(sf)?'all':'SF '+sf; gl.appendChild(lb);
+    svg.appendChild(gl);
+  });
+  $('t-chart').innerHTML=''; $('t-chart').appendChild(svg);
+}
+function renderTTable(){
+  const {rs, order} = tRows();
+  let h = `<thead><tr><th class="l">SF</th>` +
+    ENGINES.map(e=>`<th title="${esc(e)}">${esc(e.replace(/^Spark |DuckDB /,''))}</th>`).join('') + `</tr></thead><tbody>`;
+  order.forEach(sf=>{
+    const rowR = ENGINES.map(e=>rs.find(x=>x.sf===sf&&x.engine===e));
+    const times = rowR.filter(Boolean).map(r=>r.time);
+    const best = Math.min(...times);
+    h += `<tr><td class="l q">${ALLSF(sf)?'all':'SF '+sf}</td>` + rowR.map(r=>{
+      if(!r) return '<td>&mdash;</td>';
+      const isBest = Math.abs(r.time-best)<1e-9;
+      const rk = r.engine===DUCK ? 'baseline' : (r.matched!=null ? fmt(r.matched,3)+'× m' : fmt(r.ratio,3)+'×');
+      return `<td>${isBest?`<span class="fast">${secs(r.time)}</span>`:secs(r.time)}
+        <span class="subv">${rk}</span></td>`;
+    }).join('') + `</tr>`;
+  });
+  h += `</tbody>`;
+  $('t-tbl').innerHTML = h;
+  $('t-foot-l').innerHTML = `sub-line: ratio to DuckDB (m = matched subset) &middot; ` +
+    `suites: ${SUITES.join(' · ')}`;
+}
+function renderTotals(){ renderTCards(); renderTChart(); renderTTable(); }
+seg($('t-suite'), SUITES, tSuite, v=>{ tSuite=v; renderTotals(); });
+
+/* ================= 2. PER-QUERY SINGLE ================= */
+let sSuite='TPC-H', sSF=null, sSort='q';
+function sSfs(){ const ks=Object.keys(D.single[sSuite]);
+  return ks.sort((a,b)=>+a-+b); }
+function sData(){
+  const rows = (D.single[sSuite][sSF]||[]).map(r=>{
+    const rust = r.times.slice(0,3), glu = r.times.slice(3);
+    const mean = a => a.reduce((s,x)=>s+x,0)/a.length;
+    const mk = r.markers.filter(Boolean);
+    return {q:r.q, rust, glu, mR:mean(rust), mG:mean(glu),
+      ratio: mean(glu)/mean(rust), mk};
+  });
+  if(sSort==='ratio') rows.sort((a,b)=>b.ratio-a.ratio);
+  if(sSort==='rust')  rows.sort((a,b)=>b.mR-a.mR);
+  if(sSort==='gluten')rows.sort((a,b)=>b.mG-a.mG);
+  return rows;
+}
+function renderSCards(rows){
+  const wins = rows.filter(r=>r.mG>r.mR).length;
+  const gr = geo(rows.map(r=>r.ratio));
+  const med = (()=>{ const s=rows.map(r=>r.ratio).sort((a,b)=>a-b);
+    return s.length? s[Math.floor(s.length/2)] : null; })();
+  const marked = rows.filter(r=>r.mk.length).length;
+  const worst = rows.reduce((a,b)=>b.ratio>a.ratio?b:a, rows[0]);
+  $('s-cards').innerHTML = `
+   <div class="card hl"><div class="lab">queries rust is faster</div>
+     <div class="val rust">${rows.length-wins}<small>/${rows.length}</small></div>
+     <div class="sub">gluten faster on ${wins}</div></div>
+   <div class="card"><div class="lab">geometric-mean ratio</div>
+     <div class="val">${fmt(gr,2)}<small>&times;</small></div>
+     <div class="sub">gluten / rust &middot; median ${fmt(med,2)}&times;</div></div>
+   <div class="card ${marked?'warn':''}"><div class="lab">runs w/ markers</div>
+     <div class="val ${marked?'warn':''}">${marked}<small>/${rows.length}</small></div>
+     <div class="sub">letters copied from source, meanings undefined</div></div>
+   <div class="card"><div class="lab">largest gluten penalty</div>
+     <div class="val warn">${fmt(worst?worst.ratio:0,1)}<small>&times;</small></div>
+     <div class="sub">${worst?'Q'+worst.q:'&mdash;'}</div></div>`;
+}
+function renderSChart(rows){
+  const W=1100, mL=44, mR=14, mT=12, mB=58;
+  const rh=17, ih=rows.length*rh, H=mT+ih+mB;
+  const iw=W-mL-mR;
+  const all=[...rows.map(r=>r.mR),...rows.map(r=>r.mG)].filter(v=>v>0);
+  const lo=Math.min(...all)*0.75, hi=Math.max(...all)*1.3;
+  const x=v=>mL+(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo))*iw;
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`,class:'chart'});
+  [0.001,0.01,0.1,1,10,100,1000,10000].filter(t=>t>=lo&&t<=hi).forEach(t=>{
+    svg.appendChild(svgEl('line',{x1:x(t),x2:x(t),y1:mT,y2:mT+ih,stroke:'#eee9e2'}));
+    const lb=svgEl('text',{x:x(t),y:mT+ih+16,'text-anchor':'middle',
+      'font-family':'var(--mono)','font-size':10.5,fill:'#6f675e'});
+    lb.textContent = t<1?t:t+'s'; svg.appendChild(lb);
+  });
+  rows.forEach((r,i)=>{
+    const yt=mT+i*rh;
+    const bg=svgEl('rect',{x:mL,y:yt,width:iw,height:rh-2,
+      fill: i%2?'#fbf9f6':'transparent'});
+    svg.appendChild(bg);
+    const g=svgEl('g');
+    [['mR',COL2[0],'rust'],['mG',COL2[1],'gluten']].forEach(([k,c,name],j)=>{
+      const rect=svgEl('rect',{x:mL,y:yt+1+j*7,width:Math.max(x(r[k])-mL,1),
+        height:6,fill:c,rx:1.5});
+      rect.style.cursor='crosshair';
+      rect.addEventListener('mousemove',ev=>showTip(ev,
+        `<b>Q${r.q} · ${name}</b>\nmean ${secs(r[k])} s\nrepeats: ` +
+        (name==='rust'?r.rust:r.glu).map(v=>secs(v)).join(', ')+' s'));
+      rect.addEventListener('mouseleave',hideTip);
+      g.appendChild(rect);
+    });
+    const lab=svgEl('text',{x:mL-6,y:yt+11,'text-anchor':'end',
+      'font-family':'var(--mono)','font-size':10.5,fill:'#57534e'});
+    const mk=[...new Set(r.mk)].join('');
+    lab.textContent = 'Q'+r.q + (mk?' '+mk:'');
+    if(ratioCls(r.ratio)==='best') lab.setAttribute('fill','#15803d');
+    g.appendChild(lab);
+    svg.appendChild(g);
+  });
+  $('s-chart').innerHTML=''; $('s-chart').appendChild(svg);
+}
+function renderSTable(rows){
+  let h=`<thead><tr><th class="l">Q</th><th>rust mean</th><th>repeats (3)</th>
+    <th>gluten mean</th><th>repeats (2)</th><th>&Delta;</th><th>ratio g/r</th>
+    <th class="l">markers</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const d=r.mG-r.mR;
+    h+=`<tr><td class="l q">Q${r.q}</td>
+      <td>${secs(r.mR)}</td>
+      <td class="subv" style="text-align:right">${r.rust.map(v=>secs(v)).join(' · ')}</td>
+      <td>${secs(r.mG)}</td>
+      <td class="subv" style="text-align:right">${r.glu.map(v=>secs(v)).join(' · ')}</td>
+      <td style="color:${d<0?'var(--ok)':'var(--bad)'}">${d>0?'+':''}${secs(d)}</td>
+      <td class="${ratioCls(r.ratio)}">${fmt(r.ratio,2)}×</td>
+      <td class="l">${r.mk.length?r.mk.map(m=>`<span class="pill warn">${esc(m)}</span>`).join(' '):'<span class="pill mute">clean</span>'}</td></tr>`;
+  });
+  const tR=rows.reduce((s,r)=>s+r.mR,0), tG=rows.reduce((s,r)=>s+r.mG,0);
+  h+=`<tr class="total-row"><td class="l">Σ mean</td><td>${secs(tR)}</td><td></td>
+    <td>${secs(tG)}</td><td></td><td>${secs(tG-tR)}</td>
+    <td>${fmt(tG/tR,2)}×</td><td class="l"></td></tr></tbody>`;
+  $('s-tbl').innerHTML=h;
+  $('s-foot').textContent =
+    `suite ${sSuite} · SF ${sSF} · ${rows.length} queries · means of 3 (rust) / 2 (gluten) repeats`;
+}
+function renderSingle(){
+  const rows=sData();
+  renderSCards(rows); renderSChart(rows); renderSTable(rows);
+}
+function initSingle(){
+  if(sSF==null) sSF=sSfs()[0];
+  seg($('s-suite'),SUITES,sSuite,v=>{ sSuite=v; sSF=sSfs()[0];
+    seg($('s-sf'),sSfs(),sSF,v2=>{sSF=v2;renderSingle();}); renderSingle(); });
+  seg($('s-sf'),sSfs(),sSF,v=>{sSF=v;renderSingle();});
+  seg($('s-sort'),['q','ratio','rust','gluten'],sSort,v=>{sSort=v;renderSingle();});
+  renderSingle();
+}
+
+/* ================= 3. CLUSTER ================= */
+let cSF=null;
+function cSfs(){ return Object.keys(D.cluster).sort((a,b)=>+a-+b); }
+function renderCCards(){
+  const q=D.clusterQueries[cSF]||[], sum=D.cluster[cSF]||[];
+  const wins=D.wins[cSF];
+  const ratios=q.map(r=>r.ratio);
+  const gm=geo(ratios);
+  const cpu=sum.reduce((s,e)=>s+(e.cpuHours||0),0);
+  const pass=q.filter(r=>r.status==='pass').length;
+  const cards=[];
+  if(wins) cards.push({lab:'query wins rust / gluten', val:`${wins[0]}<small> / ${wins[1]}</small>`,
+    cls:'hl', sub:`SF ${cSF} · ${(wins[0]+wins[1])} decided queries`});
+  cards.push({lab:'geo-mean ratio rust/gluten', val:`${fmt(gm,2)}<small>&times;</small>`,
+    cls: gm!=null&&gm<1?'ok':'warn', sub:'&lt;1 = rust ahead'});
+  cards.push({lab:'total CPU hours (both)', val:`${fmt(cpu,1)}<small> h</small>`,
+    cls:'', sub: sum.map(e=>`${fmt(e.cpuHours,1)}h`).join(' · ')});
+  cards.push({lab:'queries status = pass', val:`${pass}<small>/${q.length}</small>`,
+    cls: pass===q.length?'ok':'warn', sub:`SF ${cSF} · cluster suite`});
+  $('c-cards').innerHTML=cards.map(c=>
+    `<div class="card ${c.cls}"><div class="lab">${c.lab}</div>
+     <div class="val ${c.cls==='ok'?'ok':c.cls==='warn'?'warn':''}">${c.val}</div>
+     <div class="sub">${c.sub}</div></div>`).join('');
+}
+function cMetric(){
+  const k=$('c-metric').value;
+  const defs={
+    time:{title:'Wall time by query',hint:'log scale · both engines',pair:true,get:(r,i)=>[r.r,r.g][i],unit:'s'},
+    ratio:{title:'Ratio rust / gluten per query',hint:'log scale · &lt;1 rust faster',pair:false,get:r=>r.ratio,unit:'×'},
+    cpu:{title:'CPU time by query',hint:'log scale · seconds [rust, gluten]',pair:true,get:(r,i)=>r.cpu?r.cpu[i]:null,unit:'s'},
+    memtime:{title:'Memory-time by query',hint:'log scale · GB·s [rust, gluten]',pair:true,get:(r,i)=>r.memtime?r.memtime[i]:null,unit:'GB·s'},
+    p95:{title:'p95 latency by query',hint:'log scale · seconds [rust, gluten]',pair:true,get:(r,i)=>r.p95?r.p95[i]:null,unit:'s'}
+  };
+  return {...defs[k], key:k};
+}
+function renderCChart(){
+  const q=D.clusterQueries[cSF]||[];
+  const m=cMetric();
+  $('c-chart-title').textContent=m.title;
+  $('c-chart-hint').innerHTML=m.hint;
+  const W=1100, mL=46, mR=14, mT=14, mB=26, iw=W-mL-mR;
+  const bh=Math.max(7,Math.min(14, 430/q.length));
+  const H=mT+q.length*bh+mB+6;
+  let all=[];
+  q.forEach(r=>{ if(m.pair){ [m.get(r,0),m.get(r,1)].forEach(v=>{if(v>0)all.push(v)}); }
+    else { const v=m.get(r); if(v>0) all.push(v); } });
+  if(!all.length){ $('c-chart').innerHTML='<p class="hint">no data</p>'; return; }
+  const lo=Math.min(...(m.pair?all:[...all,1]))*0.7, hi=Math.max(...all)*1.3;
+  const x=v=>mL+(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo))*iw;
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`,class:'chart'});
+  const tk=[0.01,0.1,0.5,1,2,5,10,20,50,100,500,1000,5000].filter(t=>t>=lo&&t<=hi);
+  tk.forEach(t=>{
+    svg.appendChild(svgEl('line',{x1:x(t),x2:x(t),y1:mT,y2:mT+q.length*bh,
+      stroke: t===1&&!m.pair?'#1c1917':'#eee9e2','stroke-width':t===1&&!m.pair?1.3:1}));
+    const lb=svgEl('text',{x:x(t),y:mT+q.length*bh+16,'text-anchor':'middle',
+      'font-family':'var(--mono)','font-size':10.5,fill:'#6f675e'});
+    lb.textContent=t+m.unit.replace('GB·s','')+(m.pair?'':''); svg.appendChild(lb);
+  });
+  q.forEach((r,i)=>{
+    const yt=mT+i*bh;
+    if(i%2===0) svg.appendChild(svgEl('rect',{x:mL,y:yt,width:iw,height:bh,fill:'#fbf9f6'}));
+    const vals = m.pair ? [m.get(r,0),m.get(r,1)] : [m.get(r)];
+    vals.forEach((v,j)=>{
+      if(v==null||!(v>0)) return;
+      const isRatio=!m.pair;
+      const c = isRatio ? (v<1?COL2[0]:COL2[1]) : COL2[j];
+      const hh = isRatio ? Math.max(bh-2,5) : Math.max((bh-3)/2,3);
+      const yv = isRatio ? yt+1 : yt+1+j*(hh+1);
+      const rect=svgEl('rect',{x:mL,y:yv,width:Math.max(x(v)-mL,1),height:hh,fill:c,rx:1.5});
+      rect.style.cursor='crosshair';
+      const eng = isRatio ? null : (j===0?'rust':'gluten');
+      rect.addEventListener('mousemove',ev=>showTip(ev,
+        `<b>Q${r.q}${eng?' · '+eng:''}</b>\n${fmt(v, m.unit==='s'?2:3)} ${m.unit}`+
+        (isRatio?'\n&lt;1 = rust faster':'') + `\nstatus: ${r.status.slice(0,60)}`));
+      rect.addEventListener('mouseleave',hideTip);
+      svg.appendChild(rect);
+    });
+  });
+  $('c-chart').innerHTML=''; $('c-chart').appendChild(svg);
+}
+function statusPill(s){
+  if(s==='pass') return `<span class="pill ok">pass</span>`;
+  if(s==='gap') return `<span class="pill warn">gap</span>`;
+  if(/^no matched/.test(s)) return `<span class="pill mute">no baseline</span>`;
+  if(s.length<=44) return `<span class="pill warn">${esc(s)}</span>`;
+  return `<span class="pill bad">review</span><span class="why">${esc(s)}</span>`;
+}
+function renderCTable(){
+  const q=D.clusterQueries[cSF]||[];
+  let h=`<thead><tr><th class="l">Q</th><th>rust</th><th>gluten</th><th>&Delta;</th>
+    <th>ratio r/g</th><th>CPU rust</th><th>CPU gluten</th><th>p95 r / g</th>
+    <th class="l">status</th></tr></thead><tbody>`;
+  let tR=0,tG=0,shown=0;
+  q.forEach(r=>{
+    if(r.r!=null&&r.g!=null){ shown++;
+      tR+=r.r; tG+=r.g; }
+    const d=(r.r!=null&&r.g!=null)?r.g-r.r:null;
+    const hm=s=>s==null?'&mdash;':`${Math.floor(s/3600)}h${String(Math.floor(s%3600/60)).padStart(2,'0')}`;
+    h+=`<tr><td class="l q">Q${r.q}</td>
+      <td>${r.r==null?'&mdash;':secs(r.r)}</td>
+      <td>${r.g==null?'&mdash;':secs(r.g)}</td>
+      <td style="color:${d==null?'var(--ink-3)':d<0?'var(--ok)':'var(--bad)'}">${d==null?'&mdash;':(d>0?'+':'')+secs(d)}</td>
+      <td class="${r.ratio!=null&&r.ratio>1?'':'best'}">${r.ratio==null?'&mdash;':fmt(r.ratio,2)+'×'}</td>
+      <td class="subv">${r.cpu?hm(r.cpu[0]):'&mdash;'}</td>
+      <td class="subv">${r.cpu?hm(r.cpu[1]):'&mdash;'}</td>
+      <td class="subv">${r.p95?secs(r.p95[0])+' / '+secs(r.p95[1]):'&mdash;'}</td>
+      <td class="l left-why">${statusPill(r.status)}</td></tr>`;
+  });
+  h+=`<tr class="total-row"><td class="l">Σ timed</td><td>${secs(tR)}</td>
+    <td>${secs(tG)}</td><td>${secs(tG-tR)}</td>
+    <td>${fmt(tG/tR,2)}×</td><td colspan="4"></td></tr></tbody>`;
+  $('c-tbl').innerHTML=h;
+  $('c-foot').textContent=`SF ${cSF} · ${q.length} queries · ${shown} timed both sides`;
+}
+function renderCluster(){ renderCCards(); renderCChart(); renderCTable(); }
+function initCluster(){
+  const sfs=cSfs();
+  if(cSF==null) cSF=sfs.includes('1000')?'1000':sfs[0];
+  seg($('c-sf'),sfs,cSF,v=>{cSF=v;renderCluster();}, v=>'SF '+v);
+  $('c-metric').onchange=renderCChart;
+  renderCluster();
+}
+
+/* ---------- init ---------- */
+renderTotals(); initSingle(); initCluster();
+</script>
+</body>
+</html>

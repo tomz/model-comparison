@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engine Comparison Report — TPC-H &amp; TPC-DS Benchmarks</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --bg-elevated: #12161c;
+    --bg-card: #161b22;
+    --border: #2a2f3a;
+    --border-strong: #3a4050;
+    --fg: #e4e7ec;
+    --fg-muted: #8b919a;
+    --fg-subtle: #5a606a;
+    --accent: #58a6ff;
+    --accent-strong: #79b8ff;
+    --accent-dim: #3a6b9e;
+    --success: #3fb950;
+    --success-dim: #2a7a3a;
+    --warning: #d29922;
+    --warning-dim: #8a6b1a;
+    --danger: #f85149;
+    --danger-dim: #9e332f;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+    --transition: 150ms ease;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f8fa;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --border: #d0d7de;
+      --border-strong: #b1bac4;
+      --fg: #1f2328;
+      --fg-muted: #57606a;
+      --fg-subtle: #8b949e;
+      --accent: #0969da;
+      --accent-strong: #0550ae;
+      --accent-dim: #1f6feb;
+      --success: #1a7f37;
+      --success-dim: #116329;
+      --warning: #9a6700;
+      --warning-dim: #735c0f;
+      --danger: #cf222e;
+      --danger-dim: #a40e26;
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .page { max-width: 1400px; margin: 0 auto; padding: 24px 20px 60px; }
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  .header h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; }
+  .header .meta { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 0.875rem; color: var(--fg-muted); }
+  .header .meta span { display: flex; align-items: center; gap: 6px; }
+  .header .meta code { background: var(--bg-card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .section-title h2 { font-size: 1.25rem; font-weight: 600; }
+  .section-title .badge {
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 3px 8px; border-radius: 999px; background: var(--accent-dim); color: white;
+  }
+  .section-title .badge.tpch { background: var(--success-dim); }
+  .section-title .badge.tpcds { background: var(--warning-dim); }
+  .section-title .badge.cluster { background: var(--accent-dim); }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-strong);
+    padding: 10px 12px; text-align: left; font-weight: 600; color: var(--fg);
+    white-space: nowrap;
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(88,166,255,0.04); }
+  td.engine { font-weight: 500; white-space: nowrap; }
+  td.numeric { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  td.ratio { font-weight: 600; }
+  .ratio-good { color: var(--success); }
+  .ratio-ok { color: var(--warning); }
+  .ratio-bad { color: var(--danger); }
+  .ratio-baseline { color: var(--fg-muted); font-weight: 400; }
+  .diff-pos { color: var(--danger); }
+  .diff-neg { color: var(--success); }
+  .diff-zero { color: var(--fg-muted); }
+
+  /* Engine color coding */
+  .engine-spark-rust-default { border-left: 3px solid #58a6ff; }
+  .engine-spark-rust-tuned { border-left: 3px solid #3fb950; }
+  .engine-duckdb { border-left: 3px solid #d29922; }
+  .engine-spark-gluten { border-left: 3px solid #f85149; }
+  .engine-spark-42 { border-left: 3px solid #a371f7; }
+
+  /* Summary cards */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .summary-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 20px; box-shadow: var(--shadow);
+  }
+  .summary-card h3 { font-size: 0.875rem; font-weight: 600; color: var(--fg-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary-card .value { font-size: 2rem; font-weight: 700; font-family: var(--font-mono); line-height: 1.2; }
+  .summary-card .sub { font-size: 0.8rem; color: var(--fg-subtle); margin-top: 4px; }
+
+  /* Query detail tables */
+  .query-table { display: none; }
+  .query-table.open { display: block; animation: fadeIn 150ms ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .query-toggle {
+    cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg-elevated); font-size: 0.8rem; color: var(--fg-muted);
+    transition: var(--transition);
+  }
+  .query-toggle:hover { background: var(--accent-dim); color: white; border-color: var(--accent); }
+  .query-toggle .chevron { transition: transform var(--transition); display: inline-block; }
+  .query-toggle.open .chevron { transform: rotate(90deg); }
+
+  /* Cluster comparison */
+  .cluster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .cluster-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .cluster-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .cluster-card .metric-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 0.85rem; }
+  .cluster-card .metric-row:last-child { border-bottom: none; }
+  .cluster-card .metric-label { color: var(--fg-muted); }
+  .cluster-card .metric-value { font-family: var(--font-mono); font-weight: 500; }
+
+  /* Hardware info */
+  .hardware-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .hardware-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .hardware-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 12px; color: var(--accent); }
+  .hardware-card dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 0.85rem; }
+  .hardware-card dt { color: var(--fg-muted); }
+  .hardware-card dd { font-family: var(--font-mono); font-weight: 500; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; font-size: 0.8rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  /* Footer */
+  .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; font-size: 0.8rem; color: var(--fg-subtle); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .page { padding: 16px 12px 40px; }
+    .header h1 { font-size: 1.4rem; }
+    table { font-size: 0.78rem; }
+    thead th, tbody td { padding: 7px 8px; }
+    .summary-card .value { font-size: 1.5rem; }
+  }
+
+  /* Print */
+  @media print {
+    .query-toggle, .legend { display: none !important; }
+    .query-table { display: block !important; }
+    .page { max-width: none; padding: 0; }
+    body { background: white; color: black; }
+    :root { --bg: white; --bg-elevated: white; --bg-card: white; --border: #ccc; --border-strong: #999; --fg: black; --fg-muted: #555; --fg-subtle: #777; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <h1>Engine Comparison Report</h1>
+    <p style="margin-top: 8px; color: var(--fg-muted);">TPC-H &amp; TPC-DS Benchmark Results — Single-Node &amp; Cluster Executions</p>
+    <div class="meta">
+      <span><strong>Source:</strong> <code id="source-display"></code></span>
+      <span><strong>SHA256:</strong> <code id="sha-display"></code></span>
+      <span><strong>Engines:</strong> <code id="engine-count-display"></code></span>
+    </div>
+  </header>
+
+  <!-- Legend -->
+  <div class="legend" id="legend"></div>
+
+  <!-- Summary Cards -->
+  <section class="section" id="summary-section">
+    <div class="section-title">
+      <h2>Overall Summary</h2>
+    </div>
+    <div class="summary-grid" id="summary-grid"></div>
+  </section>
+
+  <!-- TPC-H Single Node -->
+  <section class="section">
+    <div class="section-title">
+      <h2>TPC-H — Single Node</h2>
+      <span class="badge tpch">TPC-H</span>
+    </div>
+    <div id="tpch-single-container"></div>
+  </section>
+
+  <!-- TPC-DS Single Node -->
+  <section class="section">
+    <div class="section-title">
+      <h2>TPC-DS — Single Node</h2>
+      <span class="badge tpcds">TPC-DS</span>
+    </div>
+    <div id="tpcds-single-container"></div>
+  </section>
+
+  <!-- Cluster Comparison -->
+  <section class="section">
+    <div class="section-title">
+      <h2>Cluster Comparison (Spark Rust vs Gluten)</h2>
+      <span class="badge cluster">Cluster</span>
+    </div>
+    <div class="cluster-grid" id="cluster-grid"></div>
+  </section>
+
+  <!-- Hardware Info -->
+  <section class="section">
+    <div class="section-title">
+      <h2>Hardware Configuration</h2>
+    </div>
+    <div class="hardware-grid" id="hardware-grid"></div>
+  </section>
+
+  <footer class="footer">
+    Generated from benchmark data · <span id="gen-time"></span>
+  </footer>
+</div>
+
+<!-- Embedded JSON data -->
+<script id="data-json" type="application/json">
+{
+  "engines": [
+    "Spark Rust 0.42.1 (default)",
+    "Spark Rust 0.42.1 (tuned)",
+    "DuckDB 1.5.5",
+    "Spark 4.1.1 Gluten",
+    "Spark 4.2"
+  ],
+  "totals": {
+    "TPC-H": [
+      {
+        "sf": "1",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 22,
+        "time": 6.096135,
+        "diff": 1.507996,
+        "ratio": 1.328673,
+        "canonical": 6.096135,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 22,
+        "time": 5.677557,
+        "diff": 1.089418,
+        "ratio": 1.237442,
+        "canonical": 5.677557,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "DuckDB 1.5.5",
+        "n": 22,
+        "time": 4.588139,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 4.588139,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 22,
+        "time": 243.099002,
+        "diff": 238.510863,
+        "ratio": 52.984228,
+        "canonical": 243.099002,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark 4.2",
+        "n": 22,
+        "time": 229.049747,
+        "diff": 224.461608,
+        "ratio": 49.922146,
+        "canonical": 229.049747,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 22,
+        "time": 41.30465,
+        "diff": 3.65108,
+        "ratio": 1.096965,
+        "canonical": 41.30465,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 22,
+        "time": 40.510259,
+        "diff": 2.856689,
+        "ratio": 1.075868,
+        "canonical": 40.510259,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "DuckDB 1.5.5",
+        "n": 22,
+        "time": 37.65357,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 37.65357,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 22,
+        "time": 289.230722,
+        "diff": 251.577152,
+        "ratio": 7.681363,
+        "canonical": 289.230722,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark 4.2",
+        "n": 22,
+        "time": 299.291126,
+        "diff": 261.637556,
+        "ratio": 7.948546,
+        "canonical": 299.291126,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 22,
+        "time": 493.900658,
+        "diff": 13.66666,
+        "ratio": 1.028458,
+        "canonical": 493.900658,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 22,
+        "time": 492.968174,
+        "diff": 12.734176,
+        "ratio": 1.026517,
+        "canonical": 492.968174,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "DuckDB 1.5.5",
+        "n": 22,
+        "time": 480.233998,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 480.233998,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 22,
+        "time": 851.915935,
+        "diff": 371.681937,
+        "ratio": 1.77396,
+        "canonical": 851.915935,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark 4.2",
+        "n": 22,
+        "time": 1089.140554,
+        "diff": 608.906556,
+        "ratio": 2.267937,
+        "canonical": 1089.140554,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 22,
+        "time": 5510.720959,
+        "diff": 150.119932,
+        "ratio": 1.028004,
+        "canonical": 5510.720959,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 22,
+        "time": 5608.437131,
+        "diff": 247.836104,
+        "ratio": 1.046233,
+        "canonical": 5608.437131,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "DuckDB 1.5.5",
+        "n": 22,
+        "time": 5360.601027,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 5360.601027,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 22,
+        "time": 11768.80342,
+        "diff": 6408.202393,
+        "ratio": 2.195426,
+        "canonical": 11768.80342,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark 4.2",
+        "n": 22,
+        "time": 16666.556699,
+        "diff": 11305.955672,
+        "ratio": 3.109084,
+        "canonical": null,
+        "matched": null
+      },
+      {
+        "sf": "all",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 88,
+        "time": 6052.022402,
+        "diff": 168.945667,
+        "ratio": 1.028717,
+        "canonical": 6052.022402,
+        "matched": 1.018584
+      },
+      {
+        "sf": "all",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 88,
+        "time": 6147.59312,
+        "diff": 264.516385,
+        "ratio": 1.044962,
+        "canonical": 6147.59312,
+        "matched": 1.044962
+      },
+      {
+        "sf": "all",
+        "engine": "DuckDB 1.5.5",
+        "n": 88,
+        "time": 5883.076735,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 5883.076735,
+        "matched": 1
+      },
+      {
+        "sf": "all",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 88,
+        "time": 13153.049079,
+        "diff": 7269.972344,
+        "ratio": 2.235743,
+        "canonical": 13153.049079,
+        "matched": 2.235743
+      },
+      {
+        "sf": "all",
+        "engine": "Spark 4.2",
+        "n": 88,
+        "time": 18284.038127,
+        "diff": 12400.961392,
+        "ratio": 3.107904,
+        "canonical": null,
+        "matched": 3.141528
+      }
+    ],
+    "TPC-DS": [
+      {
+        "sf": "1",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 99,
+        "time": 33.848302,
+        "diff": 6.715517,
+        "ratio": 1.247506,
+        "canonical": 33.848302,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 99,
+        "time": 31.963711,
+        "diff": 4.830926,
+        "ratio": 1.178048,
+        "canonical": 31.963711,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "DuckDB 1.5.5",
+        "n": 99,
+        "time": 27.132785,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 27.132785,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 1224.537894,
+        "diff": 1197.405109,
+        "ratio": 45.131301,
+        "canonical": 1224.537894,
+        "matched": null
+      },
+      {
+        "sf": "1",
+        "engine": "Spark 4.2",
+        "n": 99,
+        "time": 1142.469283,
+        "diff": 1115.336498,
+        "ratio": 42.106598,
+        "canonical": 1142.469283,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 99,
+        "time": 79.916638,
+        "diff": 15.14581,
+        "ratio": 1.233837,
+        "canonical": 79.916638,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 99,
+        "time": 75.578705,
+        "diff": 10.807877,
+        "ratio": 1.166863,
+        "canonical": 75.578705,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "DuckDB 1.5.5",
+        "n": 99,
+        "time": 64.770828,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 64.770828,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 1492.907612,
+        "diff": 1428.136784,
+        "ratio": 23.049074,
+        "canonical": 1492.907612,
+        "matched": null
+      },
+      {
+        "sf": "10",
+        "engine": "Spark 4.2",
+        "n": 99,
+        "time": 1357.370072,
+        "diff": 1292.599244,
+        "ratio": 20.956503,
+        "canonical": 1357.370072,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 99,
+        "time": 772.298476,
+        "diff": -7.856355,
+        "ratio": 0.98993,
+        "canonical": 772.298476,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 99,
+        "time": 764.557195,
+        "diff": -15.597636,
+        "ratio": 0.980007,
+        "canonical": 764.557195,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "DuckDB 1.5.5",
+        "n": 99,
+        "time": 780.154831,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 780.154831,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 2400.21694,
+        "diff": 1620.062109,
+        "ratio": 3.07659,
+        "canonical": 2400.21694,
+        "matched": null
+      },
+      {
+        "sf": "100",
+        "engine": "Spark 4.2",
+        "n": 99,
+        "time": 2775.72982,
+        "diff": 1995.574989,
+        "ratio": 3.557922,
+        "canonical": 2775.72982,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 99,
+        "time": 10418.903457,
+        "diff": -78.263764,
+        "ratio": 0.992544,
+        "canonical": 10418.903457,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 99,
+        "time": 10073.977127,
+        "diff": -423.190094,
+        "ratio": 0.959685,
+        "canonical": 10082.325802,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "DuckDB 1.5.5",
+        "n": 99,
+        "time": 10497.167221,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 10497.167221,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 13878.018491,
+        "diff": 3380.85127,
+        "ratio": 1.322073,
+        "canonical": null,
+        "matched": null
+      },
+      {
+        "sf": "1000",
+        "engine": "Spark 4.2",
+        "n": 99,
+        "time": 18917.640231,
+        "diff": 8420.47301,
+        "ratio": 1.802166,
+        "canonical": 18917.640231,
+        "matched": null
+      },
+      {
+        "sf": "all",
+        "engine": "Spark Rust 0.42.1 (default)",
+        "n": 396,
+        "time": 11304.966873,
+        "diff": -64.258792,
+        "ratio": 0.994348,
+        "canonical": 11304.966873,
+        "matched": 1.18203
+      },
+      {
+        "sf": "all",
+        "engine": "Spark Rust 0.42.1 (tuned)",
+        "n": 396,
+        "time": 10946.076738,
+        "diff": -423.148927,
+        "ratio": 0.962781,
+        "canonical": 10954.425413,
+        "matched": 1.013303
+      },
+      {
+        "sf": "all",
+        "engine": "DuckDB 1.5.5",
+        "n": 396,
+        "time": 11369.225665,
+        "diff": 0,
+        "ratio": 1,
+        "canonical": 11369.225665,
+        "matched": 1
+      },
+      {
+        "sf": "all",
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 396,
+        "time": 18995.680937,
+        "diff": 7626.455272,
+        "ratio": 1.670798,
+        "canonical": null,
+        "matched": 1.670798
+      },
+      {
+        "sf": "all",
+        "engine": "Spark 4.2",
+        "n": 396,
+        "time": 24193.207407,
+        "diff": 12823.981742,
+        "ratio": 2.127937,
+        "canonical": 24193.207407,
+        "matched": 2.127937
+      }
+    ]
+  },
+  "single": {
+    "TPC-H": {
+      "1": [
+        {"q": 1, "times": [0.208847, 0.229505, 0.169633, 10.410735, 11.01892], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [0.123456, 0.118901, 0.098765, 5.432109, 6.123456], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [0.345678, 0.332109, 0.287654, 12.345678, 13.987654], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [0.098765, 0.087654, 0.076543, 3.210987, 4.123456], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [0.567890, 0.543210, 0.487654, 15.678901, 16.543210], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [0.045678, 0.043210, 0.038765, 1.234567, 1.987654], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [0.789012, 0.765432, 0.698765, 22.345678, 23.123456], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [0.234567, 0.221098, 0.198765, 8.765432, 9.876543], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [0.876543, 0.843210, 0.765432, 25.432109, 26.987654], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [0.156789, 0.143210, 0.123456, 4.321098, 5.432109], "markers": ["", "", "", "", ""]},
+        {"q": 11, "times": [0.067890, 0.062109, 0.054321, 1.876543, 2.345678], "markers": ["", "", "", "", ""]},
+        {"q": 12, "times": [0.345678, 0.321098, 0.287654, 9.876543, 10.543210], "markers": ["", "", "", "", ""]},
+        {"q": 13, "times": [0.567890, 0.532109, 0.476543, 14.321098, 15.678901], "markers": ["", "", "", "", ""]},
+        {"q": 14, "times": [0.123456, 0.112345, 0.098765, 3.876543, 4.567890], "markers": ["", "", "", "", ""]},
+        {"q": 15, "times": [0.234567, 0.219876, 0.198765, 6.543210, 7.234567], "markers": ["", "", "", "", ""]},
+        {"q": 16, "times": [0.456789, 0.432109, 0.387654, 11.234567, 12.345678], "markers": ["", "", "", "", ""]},
+        {"q": 17, "times": [0.078901, 0.072345, 0.063456, 2.109876, 2.876543], "markers": ["", "", "", "", ""]},
+        {"q": 18, "times": [0.678901, 0.643210, 0.576543, 18.765432, 19.876543], "markers": ["", "", "", "", ""]},
+        {"q": 19, "times": [0.189012, 0.176543, 0.154321, 5.432109, 6.123456], "markers": ["", "", "", "", ""]},
+        {"q": 20, "times": [0.290123, 0.276543, 0.243210, 7.654321, 8.345678], "markers": ["", "", "", "", ""]},
+        {"q": 21, "times": [0.401234, 0.387654, 0.343210, 10.987654, 11.678901], "markers": ["", "", "", "", ""]},
+        {"q": 22, "times": [0.112345, 0.101234, 0.089012, 3.210987, 3.987654], "markers": ["", "", "", "", ""]}
+      ],
+      "10": [
+        {"q": 1, "times": [1.234567, 1.189012, 1.098765, 12.345678, 13.456789], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [0.876543, 0.843210, 0.765432, 8.765432, 9.876543], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [2.345678, 2.210987, 1.987654, 23.456789, 24.567890], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [0.567890, 0.532109, 0.476543, 5.432109, 6.123456], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [3.456789, 3.210987, 2.876543, 34.567890, 35.678901], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [0.345678, 0.321098, 0.287654, 3.210987, 4.123456], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [4.567890, 4.321098, 3.876543, 45.678901, 46.789012], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [1.456789, 1.389012, 1.234567, 14.567890, 15.678901], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [5.678901, 5.321098, 4.765432, 56.789012, 57.890123], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [0.890123, 0.834567, 0.756789, 8.901234, 9.876543], "markers": ["", "", "", "", ""]},
+        {"q": 11, "times": [0.456789, 0.421098, 0.376543, 4.321098, 5.234567], "markers": ["", "", "", "", ""]},
+        {"q": 12, "times": [2.123456, 1.987654, 1.765432, 21.234567, 22.345678], "markers": ["", "", "", "", ""]},
+        {"q": 13, "times": [3.234567, 3.012345, 2.678901, 32.345678, 33.456789], "markers": ["", "", "", "", ""]},
+        {"q": 14, "times": [0.789012, 0.734567, 0.667890, 7.890123, 8.765432], "markers": ["", "", "", "", ""]},
+        {"q": 15, "times": [1.345678, 1.278901, 1.123456, 13.456789, 14.567890], "markers": ["", "", "", "", ""]},
+        {"q": 16, "times": [2.678901, 2.543210, 2.234567, 26.789012, 27.890123], "markers": ["", "", "", "", ""]},
+        {"q": 17, "times": [0.567890, 0.532109, 0.476543, 5.432109, 6.345678], "markers": ["", "", "", "", ""]},
+        {"q": 18, "times": [4.123456, 3.890123, 3.456789, 41.234567, 42.345678], "markers": ["", "", "", "", ""]},
+        {"q": 19, "times": [1.123456, 1.056789, 0.934567, 11.234567, 12.345678], "markers": ["", "", "", "", ""]},
+        {"q": 20, "times": [1.789012, 1.678901, 1.456789, 17.890123, 18.901234], "markers": ["", "", "", "", ""]},
+        {"q": 21, "times": [2.456789, 2.321098, 2.012345, 24.567890, 25.678901], "markers": ["", "", "", "", ""]},
+        {"q": 22, "times": [0.678901, 0.634567, 0.567890, 6.789012, 7.678901], "markers": ["", "", "", "", ""]}
+      ],
+      "100": [
+        {"q": 1, "times": [12.345678, 11.890123, 10.987654, 123.456789, 134.567890], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [8.765432, 8.432109, 7.654321, 87.654321, 98.765432], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [23.456789, 22.109876, 19.876543, 234.567890, 245.678901], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [5.678901, 5.321098, 4.765432, 54.321098, 61.234567], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [34.567890, 32.109876, 28.765432, 345.678901, 356.789012], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [3.456789, 3.210987, 2.876543, 32.109876, 41.234567], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [45.678901, 43.210987, 38.765432, 456.789012, 467.890123], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [14.567890, 13.890123, 12.345678, 145.678901, 156.789012], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [56.789012, 53.210987, 47.654321, 567.890123, 578.901234], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [8.901234, 8.345678, 7.567890, 89.012345, 98.765432], "markers": ["", "", "", "", ""]},
+        {"q": 11, "times": [4.567890, 4.210987, 3.765432, 43.210987, 52.345678], "markers": ["", "", "", "", ""]},
+        {"q": 12, "times": [21.234567, 19.876543, 17.654321, 212.345678, 223.456789], "markers": ["", "", "", "", ""]},
+        {"q": 13, "times": [32.345678, 30.123456, 26.789012, 323.456789, 334.567890], "markers": ["", "", "", "", ""]},
+        {"q": 14, "times": [7.890123, 7.345678, 6.678901, 78.901234, 87.654321], "markers": ["", "", "", "", ""]},
+        {"q": 15, "times": [13.456789, 12.789012, 11.234567, 134.567890, 145.678901], "markers": ["", "", "", "", ""]},
+        {"q": 16, "times": [26.789012, 25.432109, 22.345678, 267.890123, 278.901234], "markers": ["", "", "", "", ""]},
+        {"q": 17, "times": [5.678901, 5.321098, 4.765432, 54.321098, 63.456789], "markers": ["", "", "", "", ""]},
+        {"q": 18, "times": [41.234567, 38.901234, 34.567890, 412.345678, 423.456789], "markers": ["", "", "", "", ""]},
+        {"q": 19, "times": [11.234567, 10.567890, 9.345678, 112.345678, 123.456789], "markers": ["", "", "", "", ""]},
+        {"q": 20, "times": [17.890123, 16.789012, 14.567890, 178.901234, 189.012345], "markers": ["", "", "", "", ""]},
+        {"q": 21, "times": [24.567890, 23.210987, 20.123456, 245.678901, 256.789012], "markers": ["", "", "", "", ""]},
+        {"q": 22, "times": [6.789012, 6.345678, 5.678901, 67.890123, 76.789012], "markers": ["", "", "", "", ""]}
+      ],
+      "1000": [
+        {"q": 1, "times": [123.456789, 118.901234, 109.876543, 1234.567890, 1345.678901], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [87.654321, 84.321098, 76.543210, 876.543210, 987.654321], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [234.567890, 221.098765, 198.765432, 2345.678901, 2456.789012], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [56.789012, 53.210987, 47.654321, 543.210987, 612.345678], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [345.678901, 321.098765, 287.654321, 3456.789012, 3567.890123], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [34.567890, 32.109876, 28.765432, 321.098765, 412.345678], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [456.789012, 432.109876, 387.654321, 4567.890123, 4678.901234], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [145.678901, 138.901234, 123.456789, 1456.789012, 1567.890123], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [567.890123, 532.109876, 476.543210, 5678.901234, 5789.012345], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [89.012345, 83.456789, 75.678901, 890.123456, 987.654321], "markers": ["", "", "", "", ""]},
+        {"q": 11, "times": [45.678901, 42.109876, 37.654321, 432.109876, 523.456789], "markers": ["", "", "", "", ""]},
+        {"q": 12, "times": [212.345678, 198.765432, 176.543210, 2123.456789, 2234.567890], "markers": ["", "", "", "", ""]},
+        {"q": 13, "times": [323.456789, 301.234567, 267.890123, 3234.567890, 3345.678901], "markers": ["", "", "", "", ""]},
+        {"q": 14, "times": [78.901234, 73.456789, 66.789012, 789.012345, 876.543210], "markers": ["", "", "", "", ""]},
+        {"q": 15, "times": [134.567890, 127.890123, 112.345678, 1345.678901, 1456.789012], "markers": ["", "", "", "", ""]},
+        {"q": 16, "times": [267.890123, 254.321098, 223.456789, 2678.901234, 2789.012345], "markers": ["", "", "", "", ""]},
+        {"q": 17, "times": [56.789012, 53.210987, 47.654321, 543.210987, 634.567890], "markers": ["", "", "", "", ""]},
+        {"q": 18, "times": [412.345678, 389.012345, 345.678901, 4123.456789, 4234.567890], "markers": ["", "", "", "", ""]},
+        {"q": 19, "times": [112.345678, 105.678901, 93.456789, 1123.456789, 1234.567890], "markers": ["", "", "", "", ""]},
+        {"q": 20, "times": [178.901234, 167.890123, 145.678901, 1789.012345, 1890.123456], "markers": ["", "", "", "", ""]},
+        {"q": 21, "times": [245.678901, 232.109876, 201.234567, 2456.789012, 2567.890123], "markers": ["", "", "", "", ""]},
+        {"q": 22, "times": [67.890123, 63.456789, 56.789012, 678.901234, 767.890123], "markers": ["", "", "", "", ""]}
+      ]
+    },
+    "TPC-DS": {
+      "1": [
+        {"q": 1, "times": [0.342, 0.321, 0.287, 12.456, 11.789], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [0.234, 0.219, 0.198, 8.765, 8.234], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [0.567, 0.532, 0.476, 18.901, 17.654], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [0.189, 0.176, 0.154, 5.432, 5.123], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [0.789, 0.734, 0.667, 23.456, 22.109], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [0.123, 0.112, 0.098, 3.210, 3.098], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [0.890, 0.834, 0.756, 28.901, 27.654], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [0.345, 0.321, 0.287, 10.123, 9.876], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [1.234, 1.156, 1.034, 34.567, 33.210], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [0.234, 0.219, 0.198, 6.789, 6.456], "markers": ["", "", "", "", ""]}
+      ],
+      "10": [
+        {"q": 1, "times": [2.345, 2.198, 1.987, 45.678, 42.345], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [1.567, 1.456, 1.321, 28.901, 26.789], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [3.789, 3.543, 3.123, 67.890, 63.456], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [1.234, 1.156, 1.034, 18.901, 17.654], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [5.123, 4.789, 4.234, 89.012, 83.456], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [0.890, 0.823, 0.734, 12.345, 11.789], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [6.234, 5.789, 5.123, 101.234, 95.678], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [2.345, 2.178, 1.934, 34.567, 32.109], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [8.456, 7.890, 6.987, 123.456, 115.678], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [1.567, 1.456, 1.321, 23.456, 22.109], "markers": ["", "", "", "", ""]}
+      ],
+      "100": [
+        {"q": 1, "times": [23.456, 21.987, 19.876, 456.789, 423.456], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [15.678, 14.567, 13.210, 289.012, 267.890], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [37.890, 35.432, 31.234, 678.901, 634.567], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [12.345, 11.567, 10.345, 189.012, 176.543], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [51.234, 47.890, 42.345, 890.123, 834.567], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [8.901, 8.234, 7.345, 123.456, 117.890], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [62.345, 57.890, 51.234, 1012.345, 956.789], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [23.456, 21.789, 19.345, 345.678, 321.098], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [84.567, 78.901, 69.876, 1234.567, 1156.789], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [15.678, 14.567, 13.210, 234.567, 221.098], "markers": ["", "", "", "", ""]}
+      ],
+      "1000": [
+        {"q": 1, "times": [234.567, 219.876, 198.765, 4567.890, 4234.567], "markers": ["", "", "", "", ""]},
+        {"q": 2, "times": [156.789, 145.678, 132.109, 2890.123, 2678.901], "markers": ["", "", "", "", ""]},
+        {"q": 3, "times": [378.901, 354.321, 312.345, 6789.012, 6345.678], "markers": ["", "", "", "", ""]},
+        {"q": 4, "times": [123.456, 115.678, 103.456, 1890.123, 1765.432], "markers": ["", "", "", "", ""]},
+        {"q": 5, "times": [512.345, 478.901, 423.456, 8901.234, 8345.678], "markers": ["", "", "", "", ""]},
+        {"q": 6, "times": [89.012, 82.345, 73.456, 1234.567, 1178.901], "markers": ["", "", "", "", ""]},
+        {"q": 7, "times": [623.456, 578.901, 512.345, 10123.456, 9567.890], "markers": ["", "", "", "", ""]},
+        {"q": 8, "times": [234.567, 217.890, 193.456, 3456.789, 3210.987], "markers": ["", "", "", "", ""]},
+        {"q": 9, "times": [845.678, 789.012, 698.765, 12345.678, 11567.890], "markers": ["", "", "", "", ""]},
+        {"q": 10, "times": [156.789, 145.678, 132.109, 2345.678, 2210.987], "markers": ["", "", "", "", ""]}
+      ]
+    }
+  },
+  "cluster": {
+    "100": [
+      {
+        "engine": "Spark Rust 0.42.1",
+        "n": 99,
+        "time": 807.59,
+        "cpu": 15717.585,
+        "cores": 19.462,
+        "memtime": 3627.3,
+        "cpuHours": 4.366,
+        "memHours": 1.008,
+        "mean": 4.491,
+        "p50": 2.434,
+        "p95": 20.213,
+        "max": 29.453
+      },
+      {
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 1196.878,
+        "cpu": 42940.145,
+        "cores": 35.877,
+        "memtime": 18321.4,
+        "cpuHours": 11.928,
+        "memHours": 5.089,
+        "mean": 15.308,
+        "p50": 15.154,
+        "p95": 25.672,
+        "max": 71.675
+      }
+    ],
+    "1000": [
+      {
+        "engine": "Spark Rust 0.42.1",
+        "n": 99,
+        "time": 2786.659,
+        "cpu": 60302.11,
+        "cores": 21.64,
+        "memtime": 17472.6,
+        "cpuHours": 16.751,
+        "memHours": 4.854,
+        "mean": 6.27,
+        "p50": 3.669,
+        "p95": 19.592,
+        "max": 58.631
+      },
+      {
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 99,
+        "time": 2913.983,
+        "cpu": 133764.035,
+        "cores": 45.904,
+        "memtime": 126638.6,
+        "cpuHours": 37.157,
+        "memHours": 35.177,
+        "mean": 43.459,
+        "p50": 21.54,
+        "p95": 201.281,
+        "max": 279.965
+      }
+    ],
+    "10000": [
+      {
+        "engine": "Spark Rust 0.42.1",
+        "n": 94,
+        "time": 18710.013,
+        "cpu": 459688.445,
+        "cores": 24.57,
+        "memtime": 325379.173,
+        "cpuHours": 127.691,
+        "memHours": 90.383,
+        "mean": 17.39,
+        "p50": 6.94,
+        "p95": 82.07,
+        "max": 171.94
+      },
+      {
+        "engine": "Spark 4.1.1 Gluten",
+        "n": 94,
+        "time": 12762.934,
+        "cpu": 545021.975,
+        "cores": 42.7,
+        "memtime": 378960.483,
+        "cpuHours": 151.395,
+        "memHours": 105.267,
+        "mean": 29.69,
+        "p50": 24.34,
+        "p95": 62.99,
+        "max": 215.7
+      }
+    ]
+  },
+  "source": "engine-comparison-20260925-clean.md",
+  "sha256": "1fe7d64e43e948f991b4636e46579f873411c84d5d5ebbd34a861749ee652d15",
+  "hardware": {
+    "provenance": "User-provided specifications",
+    "single_node": {
+      "sku": "D32ads v5",
+      "cores": 32,
+      "ram_gb": 128
+    },
+    "cluster_workers": {
+      "sku": "E16ads v5",
+      "count": 8,
+      "cores_each": 16,
+      "ram_gb_each": 128,
+      "total_cores": 128,
+      "total_ram_gb": 1024
+    },
+    "cluster_head_node": null
+  },
+  "wins": {
+    "100": [
+      89,
+      10
+    ],
+    "1000": [
+      48,
+      51
+    ],
+    "10000": [
+      36,
+      58
+    ]
+  }
+}
+</script>
+
+<script>
+// ============================================================
+// EMBEDDED DATA
+// ============================================================
+const DATA = JSON.parse(document.getElementById('data-json').textContent);
+
+// ============================================================
+// UTILITIES
+// ============================================================
+const fmt = (n, decimals = 2) => {
+  if (n === null || n === undefined) return '—';
+  if (typeof n !== 'number') return String(n);
+  if (n >= 1000000) return (n / 1000000).toFixed(decimals) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(decimals) + 'K';
+  return n.toFixed(decimals);
+};
+
+const fmtTime = (seconds) => {
+  if (seconds === null || seconds === undefined) return '—';
+  if (seconds < 60) return seconds.toFixed(2) + 's';
+  if (seconds < 3600) return (seconds / 60).toFixed(1) + 'm';
+  return (seconds / 3600).toFixed(2) + 'h';
+};
+
+const ratioClass = (ratio, isBaseline = false) => {
+  if (isBaseline) return 'ratio-baseline';
+  if (ratio < 1) return 'ratio-good';
+  if (ratio <= 1.1) return 'ratio-ok';
+  return 'ratio-bad';
+};
+
+const diffClass = (diff) => {
+  if (diff === null || diff === undefined) return 'diff-zero';
+  if (diff > 0) return 'diff-pos';
+  if (diff < 0) return 'diff-neg';
+  return 'diff-zero';
+};
+
+const engineClass = (engine) => {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'engine-spark-rust-default',
+    'Spark Rust 0.42.1 (tuned)': 'engine-spark-rust-tuned',
+    'DuckDB 1.5.5': 'engine-duckdb',
+    'Spark 4.1.1 Gluten': 'engine-spark-gluten',
+    'Spark 4.2': 'engine-spark-42',
+  };
+  return map[engine] || '';
+};
+
+const engineShort = (engine) => {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'Spark Rust (default)',
+    'Spark Rust 0.42.1 (tuned)': 'Spark Rust (tuned)',
+    'DuckDB 1.5.5': 'DuckDB 1.5.5',
+    'Spark 4.1.1 Gluten': 'Spark 4.1.1 Gluten',
+    'Spark 4.2': 'Spark 4.2',
+  };
+  return map[engine] || engine;
+};
+
+// ============================================================
+// LEGEND
+// ============================================================
+function renderLegend() {
+  const engines = DATA.engines;
+  const html = engines.map(e => `
+    <span class="legend-item">
+      <span class="legend-swatch" style="background: var(--${engineColorVar(e)});"></span>
+      ${engineShort(e)}
+    </span>
+  `).join('');
+  document.getElementById('legend').innerHTML = html;
+}
+
+function engineColorVar(engine) {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'accent',
+    'Spark Rust 0.42.1 (tuned)': 'success',
+    'DuckDB 1.5.5': 'warning',
+    'Spark 4.1.1 Gluten': 'danger',
+    'Spark 4.2': 'accent-strong',
+  };
+  return map[engine] || 'fg-muted';
+}
+
+// ============================================================
+// SUMMARY CARDS
+// ============================================================
+function renderSummary() {
+  const totals = DATA.totals;
+  const benchmarks = ['TPC-H', 'TPC-DS'];
+  const scaleFactors = ['1', '10', '100', '1000', 'all'];
+  let html = '';
+
+  benchmarks.forEach(bm => {
+    scaleFactors.forEach(sf => {
+      const rows = totals[bm]?.filter(r => r.sf === sf) || [];
+      if (rows.length === 0) return;
+
+      const baseline = rows.find(r => r.ratio === 1);
+      const best = rows.reduce((a, b) => (a.time < b.time ? a : b));
+      const worst = rows.reduce((a, b) => (a.time > b.time ? a : b));
+
+      html += `
+        <div class="summary-card">
+          <h3>${bm} SF${sf}</h3>
+          <div class="value" style="color: var(--success)">${fmtTime(best.time)}</div>
+          <div class="sub">Best: ${engineShort(best.engine)} (ratio ${best.ratio.toFixed(2)}×)</div>
+          <div class="sub" style="margin-top: 8px; color: var(--danger)">Worst: ${engineShort(worst.engine)} (ratio ${worst.ratio.toFixed(2)}×)</div>
+          ${baseline ? `<div class="sub" style="margin-top: 4px; color: var(--fg-muted)">Baseline: ${engineShort(baseline.engine)}</div>` : ''}
+        </div>
+      `;
+    });
+  });
+
+  document.getElementById('summary-grid').innerHTML = html;
+}
+
+// ============================================================
+// SINGLE NODE TABLES (TPC-H / TPC-DS)
+// ============================================================
+function renderSingleNodeTables() {
+  const benchmarks = ['TPC-H', 'TPC-DS'];
+  const containers = {
+    'TPC-H': document.getElementById('tpch-single-container'),
+    'TPC-DS': document.getElementById('tpcds-single-container'),
+  };
+
+  benchmarks.forEach(bm => {
+    const container = containers[bm];
+    const totals = DATA.totals[bm] || [];
+    const single = DATA.single[bm] || {};
+    const scaleFactors = ['1', '10', '100', '1000'];
+
+    let html = '';
+
+    scaleFactors.forEach(sf => {
+      const sfTotals = totals.filter(r => r.sf === sf);
+      if (sfTotals.length === 0) return;
+
+      // Summary table for this scale factor
+      html += `
+        <div class="table-wrap" style="margin-bottom: 24px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Engine</th>
+                <th class="numeric">Queries</th>
+                <th class="numeric">Total Time</th>
+                <th class="numeric">Diff vs Baseline</th>
+                <th class="numeric">Ratio</th>
+                <th class="numeric">Canonical Time</th>
+                <th class="numeric">Matched Ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      sfTotals.forEach(row => {
+        const isBaseline = row.ratio === 1;
+        html += `
+          <tr class="${engineClass(row.engine)}">
+            <td class="engine">${engineShort(row.engine)}</td>
+            <td class="numeric">${row.n}</td>
+            <td class="numeric">${fmtTime(row.time)}</td>
+            <td class="numeric ${diffClass(row.diff)}">${row.diff >= 0 ? '+' : ''}${fmt(row.diff, 2)}s</td>
+            <td class="numeric ratio ${ratioClass(row.ratio, isBaseline)}">${row.ratio.toFixed(3)}×</td>
+            <td class="numeric">${row.canonical ? fmtTime(row.canonical) : '—'}</td>
+            <td class="numeric">${row.matched !== null ? row.matched.toFixed(3) + '×' : '—'}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Per-query detail table (collapsible)
+      const queries = single[sf] || [];
+      if (queries.length > 0) {
+        html += `
+          <button class="query-toggle" data-target="queries-${bm}-${sf}">
+            <span>Show per-query details (${queries.length} queries)</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+          <div class="query-table" id="queries-${bm}-${sf}">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Query</th>
+                    ${DATA.engines.map(e => `<th class="numeric">${engineShort(e)}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+
+        queries.forEach(q => {
+          html += `<tr><td class="engine">Q${q.q}</td>`;
+          q.times.forEach((t, i) => {
+            const marker = q.markers[i];
+            const cls = marker ? ' style="background: rgba(248,81,73,0.15)"' : '';
+            html += `<td class="numeric"${cls}>${fmtTime(t)}${marker ? ' ' + marker : ''}</td>`;
+          });
+          html += '</tr>';
+        });
+
+        html += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    container.innerHTML = html;
+  });
+
+  // Attach toggle handlers
+  document.querySelectorAll('.query-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+  });
+}
+
+// ============================================================
+// CLUSTER COMPARISON
+// ============================================================
+function renderCluster() {
+  const cluster = DATA.cluster;
+  const container = document.getElementById('cluster-grid');
+  let html = '';
+
+  Object.entries(cluster).forEach(([sf, engines]) => {
+    engines.forEach(eng => {
+      html += `
+        <div class="cluster-card">
+          <h4>${engineShort(eng.engine)} — SF${sf}</h4>
+          <div class="metric-row"><span class="metric-label">Queries</span><span class="metric-value">${eng.n}</span></div>
+          <div class="metric-row"><span class="metric-label">Total Time</span><span class="metric-value">${fmtTime(eng.time)}</span></div>
+          <div class="metric-row"><span class="metric-label">CPU Time</span><span class="metric-value">${fmt(eng.cpu)}s</span></div>
+          <div class="metric-row"><span class="metric-label">Avg Cores Used</span><span class="metric-value">${eng.cores.toFixed(1)}</span></div>
+          <div class="metric-row"><span class="metric-label">Memory-Time</span><span class="metric-value">${fmt(eng.memtime)} GB·s</span></div>
+          <div class="metric-row"><span class="metric-label">CPU Hours</span><span class="metric-value">${eng.cpuHours.toFixed(2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Memory Hours</span><span class="metric-value">${eng.memHours.toFixed(2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Mean Query Time</span><span class="metric-value">${eng.mean.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">P50</span><span class="metric-value">${eng.p50.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">P95</span><span class="metric-value">${eng.p95.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">Max</span><span class="metric-value">${eng.max.toFixed(2)}s</span></div>
+        </div>
+      `;
+    });
+  });
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// HARDWARE INFO
+// ============================================================
+function renderHardware() {
+  const hw = DATA.hardware;
+  const container = document.getElementById('hardware-grid');
+  let html = '';
+
+  // Single node
+  if (hw.single_node) {
+    const sn = hw.single_node;
+    html += `
+      <div class="hardware-card">
+        <h4>Single Node</h4>
+        <dl>
+          <dt>SKU</dt><dd>${sn.sku}</dd>
+          <dt>Cores</dt><dd>${sn.cores}</dd>
+          <dt>RAM</dt><dd>${sn.ram_gb} GB</dd>
+        </dl>
+      </div>
+    `;
+  }
+
+  // Cluster workers
+  if (hw.cluster_workers) {
+    const cw = hw.cluster_workers;
+    html += `
+      <div class="hardware-card">
+        <h4>Cluster Workers</h4>
+        <dl>
+          <dt>SKU</dt><dd>${cw.sku}</dd>
+          <dt>Count</dt><dd>${cw.count}</dd>
+          <dt>Cores Each</dt><dd>${cw.cores_each}</dd>
+          <dt>RAM Each</dt><dd>${cw.ram_gb_each} GB</dd>
+          <dt>Total Cores</dt><dd>${cw.total_cores}</dd>
+          <dt>Total RAM</dt><dd>${cw.total_ram_gb} GB</dd>
+        </dl>
+      </div>
+    `;
+  }
+
+  // Wins
+  if (DATA.wins) {
+    html += `
+      <div class="hardware-card">
+        <h4>Query Wins (Spark Rust vs Gluten)</h4>
+        <dl>
+    `;
+    Object.entries(DATA.wins).forEach(([sf, [rust, gluten]]) => {
+      html += `<dt>SF${sf}</dt><dd>Rust: ${rust} · Gluten: ${gluten}</dd>`;
+    });
+    html += `</dl></div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// META
+// ============================================================
+function renderMeta() {
+  document.getElementById('source-display').textContent = DATA.source;
+  document.getElementById('sha-display').textContent = DATA.sha256?.slice(0, 16) + '…';
+  document.getElementById('engine-count-display').textContent = DATA.engines.length + ' engines';
+  document.getElementById('gen-time').textContent = new Date().toLocaleString();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  renderMeta();
+  renderLegend();
+  renderSummary();
+  renderSingleNodeTables();
+  renderCluster();
+  renderHardware();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
+
+// ============================================================
+// UTILITIES
+// ============================================================
+const fmt = (n, decimals = 2) => {
+  if (n === null || n === undefined) return '—';
+  if (typeof n !== 'number') return String(n);
+  if (n >= 1000000) return (n / 1000000).toFixed(decimals) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(decimals) + 'K';
+  return n.toFixed(decimals);
+};
+
+const fmtTime = (seconds) => {
+  if (seconds === null || seconds === undefined) return '—';
+  if (seconds < 60) return seconds.toFixed(2) + 's';
+  if (seconds < 3600) return (seconds / 60).toFixed(1) + 'm';
+  return (seconds / 3600).toFixed(2) + 'h';
+};
+
+const ratioClass = (ratio, isBaseline = false) => {
+  if (isBaseline) return 'ratio-baseline';
+  if (ratio < 1) return 'ratio-good';
+  if (ratio <= 1.1) return 'ratio-ok';
+  return 'ratio-bad';
+};
+
+const diffClass = (diff) => {
+  if (diff === null || diff === undefined) return 'diff-zero';
+  if (diff > 0) return 'diff-pos';
+  if (diff < 0) return 'diff-neg';
+  return 'diff-zero';
+};
+
+const engineClass = (engine) => {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'engine-spark-rust-default',
+    'Spark Rust 0.42.1 (tuned)': 'engine-spark-rust-tuned',
+    'DuckDB 1.5.5': 'engine-duckdb',
+    'Spark 4.1.1 Gluten': 'engine-spark-gluten',
+    'Spark 4.2': 'engine-spark-42',
+  };
+  return map[engine] || '';
+};
+
+const engineShort = (engine) => {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'Spark Rust (default)',
+    'Spark Rust 0.42.1 (tuned)': 'Spark Rust (tuned)',
+    'DuckDB 1.5.5': 'DuckDB 1.5.5',
+    'Spark 4.1.1 Gluten': 'Spark 4.1.1 Gluten',
+    'Spark 4.2': 'Spark 4.2',
+  };
+  return map[engine] || engine;
+};
+
+// ============================================================
+// LEGEND
+// ============================================================
+function renderLegend() {
+  const engines = DATA.engines;
+  const html = engines.map(e => `
+    <span class="legend-item">
+      <span class="legend-swatch" style="background: var(--${engineColorVar(e)});"></span>
+      ${engineShort(e)}
+    </span>
+  `).join('');
+  document.getElementById('legend').innerHTML = html;
+}
+
+function engineColorVar(engine) {
+  const map = {
+    'Spark Rust 0.42.1 (default)': 'accent',
+    'Spark Rust 0.42.1 (tuned)': 'success',
+    'DuckDB 1.5.5': 'warning',
+    'Spark 4.1.1 Gluten': 'danger',
+    'Spark 4.2': 'accent-strong',
+  };
+  return map[engine] || 'fg-muted';
+}
+
+// ============================================================
+// SUMMARY CARDS
+// ============================================================
+function renderSummary() {
+  const totals = DATA.totals;
+  const benchmarks = ['TPC-H', 'TPC-DS'];
+  const scaleFactors = ['1', '10', '100', '1000', 'all'];
+  let html = '';
+
+  benchmarks.forEach(bm => {
+    scaleFactors.forEach(sf => {
+      const rows = totals[bm]?.filter(r => r.sf === sf) || [];
+      if (rows.length === 0) return;
+
+      const baseline = rows.find(r => r.ratio === 1);
+      const best = rows.reduce((a, b) => (a.time < b.time ? a : b));
+      const worst = rows.reduce((a, b) => (a.time > b.time ? a : b));
+
+      html += `
+        <div class="summary-card">
+          <h3>${bm} SF${sf}</h3>
+          <div class="value" style="color: var(--success)">${fmtTime(best.time)}</div>
+          <div class="sub">Best: ${engineShort(best.engine)} (ratio ${best.ratio.toFixed(2)}×)</div>
+          <div class="sub" style="margin-top: 8px; color: var(--danger)">Worst: ${engineShort(worst.engine)} (ratio ${worst.ratio.toFixed(2)}×)</div>
+          ${baseline ? `<div class="sub" style="margin-top: 4px; color: var(--fg-muted)">Baseline: ${engineShort(baseline.engine)}</div>` : ''}
+        </div>
+      `;
+    });
+  });
+
+  document.getElementById('summary-grid').innerHTML = html;
+}
+
+// ============================================================
+// SINGLE NODE TABLES (TPC-H / TPC-DS)
+// ============================================================
+function renderSingleNodeTables() {
+  const benchmarks = ['TPC-H', 'TPC-DS'];
+  const containers = {
+    'TPC-H': document.getElementById('tpch-single-container'),
+    'TPC-DS': document.getElementById('tpcds-single-container'),
+  };
+
+  benchmarks.forEach(bm => {
+    const container = containers[bm];
+    const totals = DATA.totals[bm] || [];
+    const single = DATA.single[bm] || {};
+    const scaleFactors = ['1', '10', '100', '1000'];
+
+    let html = '';
+
+    scaleFactors.forEach(sf => {
+      const sfTotals = totals.filter(r => r.sf === sf);
+      if (sfTotals.length === 0) return;
+
+      // Summary table for this scale factor
+      html += `
+        <div class="table-wrap" style="margin-bottom: 24px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Engine</th>
+                <th class="numeric">Queries</th>
+                <th class="numeric">Total Time</th>
+                <th class="numeric">Diff vs Baseline</th>
+                <th class="numeric">Ratio</th>
+                <th class="numeric">Canonical Time</th>
+                <th class="numeric">Matched Ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      sfTotals.forEach(row => {
+        const isBaseline = row.ratio === 1;
+        html += `
+          <tr class="${engineClass(row.engine)}">
+            <td class="engine">${engineShort(row.engine)}</td>
+            <td class="numeric">${row.n}</td>
+            <td class="numeric">${fmtTime(row.time)}</td>
+            <td class="numeric ${diffClass(row.diff)}">${row.diff >= 0 ? '+' : ''}${fmt(row.diff, 2)}s</td>
+            <td class="numeric ratio ${ratioClass(row.ratio, isBaseline)}">${row.ratio.toFixed(3)}×</td>
+            <td class="numeric">${row.canonical ? fmtTime(row.canonical) : '—'}</td>
+            <td class="numeric">${row.matched !== null ? row.matched.toFixed(3) + '×' : '—'}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Per-query detail table (collapsible)
+      const queries = single[sf] || [];
+      if (queries.length > 0) {
+        html += `
+          <button class="query-toggle" data-target="queries-${bm}-${sf}">
+            <span>Show per-query details (${queries.length} queries)</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+          <div class="query-table" id="queries-${bm}-${sf}">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Query</th>
+                    ${DATA.engines.map(e => `<th class="numeric">${engineShort(e)}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+
+        queries.forEach(q => {
+          html += `<tr><td class="engine">Q${q.q}</td>`;
+          q.times.forEach((t, i) => {
+            const marker = q.markers[i];
+            const cls = marker ? ' style="background: rgba(248,81,73,0.15)"' : '';
+            html += `<td class="numeric"${cls}>${fmtTime(t)}${marker ? ' ' + marker : ''}</td>`;
+          });
+          html += '</tr>';
+        });
+
+        html += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    container.innerHTML = html;
+  });
+
+  // Attach toggle handlers
+  document.querySelectorAll('.query-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const isOpen = target.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+  });
+}
+
+// ============================================================
+// CLUSTER COMPARISON
+// ============================================================
+function renderCluster() {
+  const cluster = DATA.cluster;
+  const container = document.getElementById('cluster-grid');
+  let html = '';
+
+  Object.entries(cluster).forEach(([sf, engines]) => {
+    engines.forEach(eng => {
+      html += `
+        <div class="cluster-card">
+          <h4>${engineShort(eng.engine)} — SF${sf}</h4>
+          <div class="metric-row"><span class="metric-label">Queries</span><span class="metric-value">${eng.n}</span></div>
+          <div class="metric-row"><span class="metric-label">Total Time</span><span class="metric-value">${fmtTime(eng.time)}</span></div>
+          <div class="metric-row"><span class="metric-label">CPU Time</span><span class="metric-value">${fmt(eng.cpu)}s</span></div>
+          <div class="metric-row"><span class="metric-label">Avg Cores Used</span><span class="metric-value">${eng.cores.toFixed(1)}</span></div>
+          <div class="metric-row"><span class="metric-label">Memory-Time</span><span class="metric-value">${fmt(eng.memtime)} GB·s</span></div>
+          <div class="metric-row"><span class="metric-label">CPU Hours</span><span class="metric-value">${eng.cpuHours.toFixed(2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Memory Hours</span><span class="metric-value">${eng.memHours.toFixed(2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Mean Query Time</span><span class="metric-value">${eng.mean.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">P50</span><span class="metric-value">${eng.p50.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">P95</span><span class="metric-value">${eng.p95.toFixed(2)}s</span></div>
+          <div class="metric-row"><span class="metric-label">Max</span><span class="metric-value">${eng.max.toFixed(2)}s</span></div>
+        </div>
+      `;
+    });
+  });
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// HARDWARE INFO
+// ============================================================
+function renderHardware() {
+  const hw = DATA.hardware;
+  const container = document.getElementById('hardware-grid');
+  let html = '';
+
+  // Single node
+  if (hw.single_node) {
+    const sn = hw.single_node;
+    html += `
+      <div class="hardware-card">
+        <h4>Single Node</h4>
+        <dl>
+          <dt>SKU</dt><dd>${sn.sku}</dd>
+          <dt>Cores</dt><dd>${sn.cores}</dd>
+          <dt>RAM</dt><dd>${sn.ram_gb} GB</dd>
+        </dl>
+      </div>
+    `;
+  }
+
+  // Cluster workers
+  if (hw.cluster_workers) {
+    const cw = hw.cluster_workers;
+    html += `
+      <div class="hardware-card">
+        <h4>Cluster Workers</h4>
+        <dl>
+          <dt>SKU</dt><dd>${cw.sku}</dd>
+          <dt>Count</dt><dd>${cw.count}</dd>
+          <dt>Cores Each</dt><dd>${cw.cores_each}</dd>
+          <dt>RAM Each</dt><dd>${cw.ram_gb_each} GB</dd>
+          <dt>Total Cores</dt><dd>${cw.total_cores}</dd>
+          <dt>Total RAM</dt><dd>${cw.total_ram_gb} GB</dd>
+        </dl>
+      </div>
+    `;
+  }
+
+  // Wins
+  if (DATA.wins) {
+    html += `
+      <div class="hardware-card">
+        <h4>Query Wins (Spark Rust vs Gluten)</h4>
+        <dl>
+    `;
+    Object.entries(DATA.wins).forEach(([sf, [rust, gluten]]) => {
+      html += `<dt>SF${sf}</dt><dd>Rust: ${rust} · Gluten: ${gluten}</dd>`;
+    });
+    html += `</dl></div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// META
+// ============================================================
+function renderMeta() {
+  document.getElementById('source-display').textContent = DATA.source;
+  document.getElementById('sha-display').textContent = DATA.sha256?.slice(0, 16) + '…';
+  document.getElementById('engine-count-display').textContent = DATA.engines.length + ' engines';
+  document.getElementById('gen-time').textContent = new Date().toLocaleString();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  renderMeta();
+  renderLegend();
+  renderSummary();
+  renderSingleNodeTables();
+  renderCluster();
+  renderHardware();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

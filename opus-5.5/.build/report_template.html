@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Query Engine Benchmark Comparison — TPC-H &amp; TPC-DS</title>
+<meta name="description" content="Single-node and cluster benchmark comparison of Spark Rust, DuckDB, Spark 4.1.1 Gluten and Spark 4.2 on TPC-H and TPC-DS.">
+<style>
+:root{
+  --bg:#f7f6f3; --surface:#ffffff; --ink:#1b1d21; --ink-2:#4a4f58; --ink-3:#656b76;
+  --line:#e2e0da; --line-2:#cfccc4; --accent:#1f4e79;
+  --good:#1d6b45; --good-soft:#e3f1e8; --warn:#7a4f00; --warn-soft:#fbf0d9; --bad:#9b2c2c;
+  --e0:#E69F00; --e1:#D55E00; --e2:#0072B2; --e3:#009E73; --e4:#CC79A7;
+  --rust:#B84F00; --gluten:#007A5A;
+  --radius:10px; --gap:1.5rem;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-999px;top:0;background:var(--ink);color:#fff;padding:.5rem 1rem;z-index:10}
+.skip:focus{left:1rem;top:1rem}
+.wrap{max-width:1180px;margin:0 auto;padding:0 1.25rem}
+header.hero{background:#15202e;color:#eef2f7;padding:3rem 0 2.25rem;border-bottom:4px solid #3b78b0}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:#a9bccf;font-weight:600;margin:0 0 .6rem}
+h1{font-size:clamp(1.7rem,3.6vw,2.6rem);line-height:1.15;margin:0 0 .75rem;letter-spacing:-.01em}
+.lede{max-width:760px;color:#c9d4e0;font-size:1.05rem;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;margin-top:1.6rem;font-size:.85rem;color:#a9bccf}
+.meta b{color:#eef2f7;font-weight:600}
+.meta code{font-family:var(--mono);font-size:.8rem;color:#dbe5ef}
+nav.toc{position:sticky;top:0;z-index:5;background:rgba(247,246,243,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+nav.toc ul{list-style:none;margin:0;padding:0;display:flex;gap:.25rem;overflow-x:auto}
+nav.toc a{display:block;padding:.8rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:.88rem;white-space:nowrap}
+nav.toc a:hover{color:var(--accent)}
+main section{padding:2.75rem 0 .5rem;scroll-margin-top:3rem}
+h2{font-size:1.45rem;margin:0 0 .35rem;letter-spacing:-.005em}
+h3{font-size:1.05rem;margin:1.75rem 0 .6rem}
+.section-intro{color:var(--ink-2);max-width:780px;margin:0 0 1.4rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.25rem 1.35rem;min-width:0}
+.findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem}
+.finding .k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:700;margin:0 0 .4rem}
+.finding .v{font-size:1.75rem;font-weight:700;line-height:1.15;margin:0 0 .45rem;font-variant-numeric:tabular-nums}
+.finding p{margin:0;color:var(--ink-2);font-size:.92rem}
+.controls{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:flex-end;margin:0 0 1rem}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:.88rem;font-weight:600;border:0;background:transparent;color:var(--ink-2);padding:.5rem .95rem;min-height:40px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+select{font:inherit;font-size:.9rem;text-transform:none;letter-spacing:0;color:var(--ink);padding:.45rem .6rem;min-height:40px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);max-width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;font-size:.85rem;color:var(--ink-2);margin:.25rem 0 1rem}
+.legend span{display:inline-flex;align-items:center;gap:.4rem}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
+.bars{display:grid;gap:1.35rem}
+.bar-group h4{margin:0 0 .5rem;font-size:.85rem;color:var(--ink-2);font-weight:700}
+.bar-row{display:grid;grid-template-columns:minmax(120px,220px) 1fr minmax(118px,auto);gap:.75rem;align-items:center;font-size:.86rem;padding:.12rem 0}
+.bar-row .lbl{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:.4rem}
+.track{position:relative;height:16px;background:repeating-linear-gradient(90deg,var(--line) 0,var(--line) 1px,transparent 1px,transparent var(--tick));border-radius:3px}
+.track .one{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.6}
+.track .fill{position:absolute;top:2px;bottom:2px;border-radius:2px}
+.bar-row .val{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.axis{display:grid;grid-template-columns:minmax(120px,220px) 1fr minmax(118px,auto);gap:.75rem;font-size:.75rem;color:var(--ink-3)}
+.axis .ticks{position:relative;height:1.2em}
+.axis .ticks span{position:absolute;transform:translateX(-50%)}
+.axis .ticks span:first-child{transform:none}
+.axis .ticks span:last-child{transform:translateX(-100%)}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+caption{text-align:left;padding:.8rem 1rem;font-size:.85rem;color:var(--ink-3);caption-side:bottom;border-top:1px solid var(--line)}
+th,td{padding:.55rem .8rem;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{background:#f1efe9;font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);position:sticky;top:0;z-index:1}
+tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+tbody tr:hover td{box-shadow:inset 0 0 0 9999px rgba(0,0,0,.025)}
+td.best{font-weight:700;color:var(--good)}
+.sub{display:block;font-size:.76rem;color:var(--ink-3);font-weight:400}
+.eng{display:inline-flex;align-items:center;gap:.45rem}
+.tall{max-height:640px;overflow:auto}
+.mk{display:inline-block;font-size:.66rem;font-weight:700;line-height:1;padding:.18rem .3rem;border-radius:4px;background:var(--warn-soft);color:var(--warn);margin-left:.3rem;vertical-align:1px}
+.pill{display:inline-block;padding:.12rem .5rem;border-radius:999px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.pill.pass{background:var(--good-soft);color:var(--good)}
+.pill.gap{background:var(--warn-soft);color:var(--warn)}
+.pill.other{background:#ececf1;color:#45475a;white-space:normal;max-width:340px;text-align:left}
+.faster{color:var(--good);font-weight:600}.slower{color:var(--bad);font-weight:600}
+.grid-2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:var(--gap);align-items:start}
+@media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+@media (max-width:560px){
+  .bar-row,.axis{grid-template-columns:1fr 64px;gap:.2rem .5rem;font-size:.8rem}
+  .bar-row .lbl{grid-column:1 / -1;white-space:normal}
+  .axis > span:first-child{display:none}
+  .bar-row .val .sub{display:none}
+  th,td{padding:.5rem .6rem}
+  .card{padding:1rem}
+}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.8rem;margin-bottom:1.25rem}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem}
+.kpi .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:700}
+.kpi .row{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-top:.35rem;font-variant-numeric:tabular-nums;font-size:.92rem}
+.kpi .row span{display:inline-flex;align-items:center;gap:.4rem}
+.kpi .delta{margin-top:.4rem;font-size:.8rem;color:var(--ink-3)}
+.winbar{display:flex;height:28px;border-radius:6px;overflow:hidden;font-size:.8rem;font-weight:700;color:#fff}
+.winbar div{display:flex;align-items:center;padding:0 .6rem;white-space:nowrap}
+svg text{font-family:var(--font)}
+.scatter{width:100%;height:auto;max-width:540px;display:block;margin:0 auto}
+.note{font-size:.86rem;color:var(--ink-2)}
+dl.spec{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1.25rem;margin:0;font-size:.9rem}
+dl.spec dt{color:var(--ink-3);font-weight:600}
+dl.spec dd{margin:0}
+.muted{color:var(--ink-3)}
+footer{padding:2.5rem 0 3rem;color:var(--ink-3);font-size:.82rem;border-top:1px solid var(--line);margin-top:3rem}
+code{font-family:var(--mono);font-size:.85em}
+.empty{padding:1.5rem;text-align:center;color:var(--ink-3)}
+@media print{
+  nav.toc,.controls{display:none}
+  body{background:#fff}
+  header.hero{background:#fff;color:#000;border-bottom:2px solid #000}
+  .lede,.meta,.meta b,.meta code,.eyebrow{color:#000}
+  .tall{max-height:none;overflow:visible}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Benchmark report · TPC-H &amp; TPC-DS</p>
+    <h1>Query Engine Performance Comparison</h1>
+    <p class="lede">Five SQL engine configurations on a single node across scale factors 1–1,000, plus an 8-worker cluster comparison of Spark Rust and Spark 4.1.1 Gluten on TPC-DS up to SF 10,000.</p>
+    <div class="meta" id="meta"></div>
+  </div>
+</header>
+<nav class="toc" aria-label="Report sections">
+  <div class="wrap"><ul>
+    <li><a href="#findings">Key findings</a></li>
+    <li><a href="#single">Single-node totals</a></li>
+    <li><a href="#queries">Per-query explorer</a></li>
+    <li><a href="#cluster">Cluster</a></li>
+    <li><a href="#method">Method &amp; notes</a></li>
+  </ul></div>
+</nav>
+<main id="main" class="wrap">
+
+<section id="findings" aria-labelledby="h-findings">
+  <h2 id="h-findings">Key findings</h2>
+  <p class="section-intro">These headline numbers come straight from the embedded dataset. On a single node, ratios use DuckDB as the baseline (1.00×), and lower is faster.</p>
+  <div class="findings" id="findings-grid"></div>
+</section>
+
+<section id="single" aria-labelledby="h-single">
+  <h2 id="h-single">Single-node totals</h2>
+  <p class="section-intro">Total runtime of each benchmark's query set at each scale factor, shown relative to DuckDB. The axis is logarithmic, so the gaps at small scale factors can be seen next to the near-parity results at large scale.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Benchmark" id="tot-bench"></div>
+  </div>
+  <div class="legend" id="eng-legend"></div>
+  <div class="card"><div class="bars" id="tot-bars"></div></div>
+  <h3 id="tot-table-h">Totals by scale factor</h3>
+  <div class="table-scroll" id="tot-table"></div>
+</section>
+
+<section id="queries" aria-labelledby="h-queries">
+  <h2 id="h-queries">Per-query explorer</h2>
+  <p class="section-intro">Single-node runtime in seconds for each query. The fastest engine in each row is shown in <b class="faster">green</b>. Cell shading gets stronger as an engine falls further behind that row's best time.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Benchmark" id="q-bench"></div>
+    <label class="field">Scale factor<select id="q-sf"></select></label>
+    <label class="field">Sort by<select id="q-sort">
+      <option value="q">Query number</option>
+      <option value="dur">Slowest (DuckDB) first</option>
+      <option value="spread">Largest spread first</option>
+      <option value="rust">Spark Rust (tuned) vs DuckDB, worst first</option>
+    </select></label>
+  </div>
+  <div class="legend" id="q-summary"></div>
+  <div class="table-scroll tall" id="q-table"></div>
+</section>
+
+<section id="cluster" aria-labelledby="h-cluster">
+  <h2 id="h-cluster">Cluster: Spark Rust vs Spark 4.1.1 Gluten (TPC-DS)</h2>
+  <p class="section-intro" id="cluster-intro"></p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Cluster scale factor" id="c-sf"></div>
+  </div>
+  <div id="c-kpis" class="kpis"></div>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">Per-query wall time</h3>
+      <p class="note" style="margin-top:0">Each point is one query, plotted on log–log axes. Points below the diagonal are queries where Spark Rust was faster.</p>
+      <div id="c-scatter"></div>
+      <div class="legend" id="c-scatter-legend" style="justify-content:center;margin-top:.5rem"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Resource summary</h3>
+      <div class="table-scroll" id="c-summary" style="border:0"></div>
+    </div>
+  </div>
+  <h3>Per-query detail</h3>
+  <div class="controls">
+    <label class="field">Status<select id="c-status"></select></label>
+    <label class="field">Sort by<select id="c-sort">
+      <option value="q">Query number</option>
+      <option value="ratio-desc">Rust / Gluten ratio, highest first</option>
+      <option value="ratio-asc">Rust / Gluten ratio, lowest first</option>
+      <option value="diff">Absolute difference, largest first</option>
+    </select></label>
+  </div>
+  <div class="table-scroll tall" id="c-table"></div>
+</section>
+
+<section id="method" aria-labelledby="h-method">
+  <h2 id="h-method">Method &amp; notes</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="margin-top:0">Hardware</h3>
+      <dl class="spec" id="hw"></dl>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Reading this report</h3>
+      <ul class="note" style="padding-left:1.1rem;margin:0">
+        <li><b>Ratio</b> (single node) is an engine's total time divided by DuckDB's total time at the same scale factor. <b>Diff</b> is the gap in seconds.</li>
+        <li><b>Canonical</b> total: the source reports it separately from the raw total. It is missing ("no canonical") or different when flagged runs are involved.</li>
+        <li><b>Matched</b> ratio: the source gives this for the all-scale-factor aggregate only. It is shown here without changes.</li>
+        <li>Per-query flags <span class="mk">B</span> and <span class="mk">P</span> are copied from the source data. What they mean is set out in the source report, which is not part of this dataset.</li>
+        <li><b>Cluster ratio</b> is Spark Rust time divided by Gluten time, so values below 1 mean Spark Rust was faster. CPU is in core-seconds, per-query memory is in GB, and memory×time is in GB-seconds.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <div class="wrap" id="foot"></div>
+</footer>
+
+<script type="application/json" id="report-data">__DATA__</script>
+<script>
+(function(){
+"use strict";
+const D = JSON.parse(document.getElementById('report-data').textContent);
+const ENG = D.engines;
+const COLORS = ['var(--e0)','var(--e1)','var(--e2)','var(--e3)','var(--e4)'];
+const BASE = ENG.indexOf('DuckDB 1.5.5') >= 0 ? ENG.indexOf('DuckDB 1.5.5') : 2;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = (v, d) => v == null || isNaN(v) ? '—' : Number(v).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+function sec(v){ if (v == null) return '—'; if (v < 10) return nf(v,2); if (v < 1000) return nf(v,1); return nf(v,0); }
+function dur(v){
+  if (v == null) return '—';
+  if (v < 60) return nf(v,1)+' s';
+  const h = Math.floor(v/3600), m = Math.floor((v%3600)/60), s = Math.round(v%60);
+  if (h) return h+'h '+String(m).padStart(2,'0')+'m';
+  return m+'m '+String(s).padStart(2,'0')+'s';
+}
+const x = (v, d=2) => v == null ? '—' : nf(v,d)+'×';
+const sfLabel = sf => sf === 'all' ? 'All SFs' : 'SF '+Number(sf).toLocaleString('en-US');
+const dot = i => `<span class="sw" style="background:${COLORS[i]}" aria-hidden="true"></span>`;
+function seg(el, items, current, onPick){
+  el.innerHTML = items.map(it => `<button type="button" data-v="${esc(it.v)}" aria-pressed="${it.v===current}">${esc(it.l)}</button>`).join('');
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    el.querySelectorAll('button').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+    onPick(b.dataset.v);
+  });
+}
+const benches = Object.keys(D.totals);
+
+/* header */
+const hw = D.hardware || {};
+const sn = hw.single_node || {}, cw = hw.cluster_workers || {};
+$('meta').innerHTML = [
+  `<span>Single node <b>${esc(sn.sku||'—')}</b> · ${esc(sn.cores||'—')} cores · ${esc(sn.ram_gb||'—')} GB</span>`,
+  `<span>Cluster <b>${esc(cw.count||'—')}× ${esc(cw.sku||'—')}</b> · ${esc(cw.total_cores||'—')} cores · ${esc(cw.total_ram_gb||'—')} GB</span>`,
+  `<span>Source <code>${esc(D.source||'—')}</code></span>`,
+  `<span>SHA-256 <code title="${esc(D.sha256||'')}">${esc((D.sha256||'').slice(0,12))}…</code></span>`
+].join('');
+
+/* findings */
+(function(){
+  const tot = (b, sf, e) => D.totals[b].find(r => r.sf === sf && r.engine === e);
+  const sfs = b => [...new Set(D.totals[b].map(r => r.sf))].filter(s => s !== 'all');
+  const cards = [];
+  const ds = 'TPC-DS', th = 'TPC-H';
+  if (D.totals[ds]) {
+    const top = sfs(ds).slice(-1)[0];
+    const rows = D.totals[ds].filter(r => r.sf === top).sort((a,b) => a.time - b.time);
+    const w = rows[0];
+    cards.push({k:`Fastest on ${ds} ${sfLabel(top)}`, v:w.engine,
+      p:`${dur(w.time)} total, which is ${x(w.ratio,3)} DuckDB's time (${nf(Math.abs(w.diff),0)} s ${w.diff<0?'faster':'slower'}). Both Spark Rust configurations beat DuckDB on TPC-DS at SF 100 and above.`});
+  }
+  if (D.totals[th]) {
+    const all = D.totals[th].filter(r => r.sf === 'all').sort((a,b) => a.time - b.time);
+    cards.push({k:`${th}, all scale factors`, v:all[0].engine,
+      p:`${esc(all[0].engine)} is fastest overall. ${esc(all[1].engine)} follows at ${x(all[1].ratio)}. The JVM Spark engines are at ${x(all[all.length-2].ratio)} and ${x(all[all.length-1].ratio)}.`});
+  }
+  if (D.totals[th]) {
+    const s0 = sfs(th)[0];
+    const s1 = D.totals[th].filter(r => r.sf === s0);
+    const worst = s1.reduce((a,b) => a.ratio > b.ratio ? a : b);
+    cards.push({k:`Small-scale overhead (${th} ${sfLabel(s0)})`, v:x(worst.ratio,0)+' slower',
+      p:`${esc(worst.engine)} needs ${dur(worst.time)}, compared with DuckDB's ${dur(tot(th,s0,ENG[BASE]).time)}. The gap shrinks to ${x(tot(th,sfs(th).slice(-1)[0],worst.engine).ratio)} at ${sfLabel(sfs(th).slice(-1)[0])}.`});
+  }
+  const csf = Object.keys(D.cluster||{});
+  if (csf.length){
+    const big = csf[csf.length-1]; const [r,g] = D.cluster[big];
+    const w = D.wins[big] || [];
+    cards.push({k:`Cluster at ${sfLabel(big)}`, v:`${nf((1-r.cpuHours/g.cpuHours)*100,0)}% fewer CPU-hours`,
+      p:`${esc(r.engine)} uses ${nf(r.cpuHours,1)} CPU-hours against Gluten's ${nf(g.cpuHours,1)}. Gluten finishes sooner in wall time (${dur(g.time)} vs ${dur(r.time)}) and wins ${w[1]} of ${r.n} queries.`});
+  }
+  $('findings-grid').innerHTML = cards.map(c => `<article class="card finding"><p class="k">${esc(c.k)}</p><p class="v">${esc(c.v)}</p><p>${c.p}</p></article>`).join('');
+})();
+
+$('eng-legend').innerHTML = ENG.map((e,i) => `<span>${dot(i)}${esc(e)}${i===BASE?' <span class="muted">(baseline)</span>':''}</span>`).join('');
+
+/* totals */
+const LO = 0.5, HI = 64;
+const pos = v => Math.max(0, Math.min(100, (Math.log(v) - Math.log(LO)) / (Math.log(HI) - Math.log(LO)) * 100));
+function renderTotals(b){
+  const rows = D.totals[b];
+  const sfs = [...new Set(rows.map(r => r.sf))];
+  const onePos = pos(1);
+  const ticks = [0.5,1,2,4,8,16,32,64];
+  const tickW = 100/(ticks.length-1);
+  let h = `<div class="axis" aria-hidden="true"><span></span><div class="ticks">${ticks.map(t => `<span style="left:${pos(t)}%">${t}×</span>`).join('')}</div><span></span></div>`;
+  h += sfs.map(sf => {
+    const g = rows.filter(r => r.sf === sf);
+    return `<div class="bar-group" role="group" aria-label="${esc(b)} ${esc(sfLabel(sf))}"><h4>${esc(sfLabel(sf))} <span class="muted" style="font-weight:400">· ${g[0].n} queries</span></h4>` +
+      ENG.map((e,i) => {
+        const r = g.find(o => o.engine === e); if (!r) return '';
+        const p = pos(r.ratio), l = Math.min(p,onePos), w = Math.max(Math.abs(p-onePos), .6);
+        return `<div class="bar-row"><span class="lbl" title="${esc(e)}">${dot(i)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(e)}</span></span>
+          <div class="track" style="--tick:${tickW}%" role="img" aria-label="${esc(e)}: ${nf(r.ratio,2)} times DuckDB"><span class="one" style="left:calc(${onePos}% - 1px)"></span><span class="fill" style="left:${l}%;width:${w}%;background:${COLORS[i]}"></span></div>
+          <span class="val"><b>${x(r.ratio)}</b> <span class="sub">${dur(r.time)}</span></span></div>`;
+      }).join('') + '</div>';
+  }).join('');
+  $('tot-bars').innerHTML = h;
+
+  let t = `<table><thead><tr><th scope="col">Engine</th>${sfs.map(sf => `<th scope="col">${esc(sfLabel(sf))}</th>`).join('')}</tr></thead><tbody>`;
+  t += ENG.map((e,i) => `<tr><th scope="row" style="text-align:left;font-weight:600"><span class="eng">${dot(i)}${esc(e)}</span></th>` + sfs.map(sf => {
+    const g = rows.filter(r => r.sf === sf), r = g.find(o => o.engine === e);
+    if (!r) return '<td>—</td>';
+    const best = Math.min(...g.map(o => o.time)) === r.time;
+    const canon = r.canonical == null ? '<span class="mk" title="No canonical total reported in source">no canonical</span>' :
+      (Math.abs(r.canonical - r.time) > 0.01 ? `<span class="sub">canonical ${sec(r.canonical)} s</span>` : '');
+    const matched = r.matched != null ? `<span class="sub">matched ${x(r.matched,3)}</span>` : '';
+    return `<td class="${best?'best':''}">${sec(r.time)} s<span class="sub">${x(r.ratio,3)} · ${r.diff>0?'+':''}${nf(r.diff,1)} s</span>${canon}${matched}</td>`;
+  }).join('') + '</tr>').join('');
+  t += `</tbody><caption>${esc(b)} total runtime in seconds. The second line in each cell gives the ratio and difference against DuckDB. The fastest engine in each column is shown in green.</caption></table>`;
+  $('tot-table').innerHTML = t;
+  $('tot-table-h').textContent = `${b} totals by scale factor`;
+}
+seg($('tot-bench'), benches.map(b => ({v:b,l:b})), benches[0], renderTotals);
+renderTotals(benches[0]);
+
+/* per-query */
+let qBench = benches[0];
+function fillSf(){
+  const sfs = Object.keys(D.single[qBench]);
+  const sel = $('q-sf'), prev = sel.value;
+  sel.innerHTML = sfs.map(s => `<option value="${esc(s)}">${esc(sfLabel(s))}</option>`).join('');
+  sel.value = sfs.includes(prev) ? prev : sfs[sfs.length-1];
+}
+function shade(ratio){
+  if (ratio <= 1.0001) return '';
+  const a = Math.min(1, Math.log(ratio)/Math.log(40)) * 0.30;
+  return `background:rgba(155,44,44,${a.toFixed(3)})`;
+}
+function renderQueries(){
+  const sf = $('q-sf').value, sort = $('q-sort').value;
+  let rows = (D.single[qBench][sf] || []).slice();
+  const best = r => Math.min(...r.times.filter(t => t != null));
+  const TUNED = ENG.findIndex(e => /tuned/.test(e));
+  if (sort === 'dur') rows.sort((a,b) => (b.times[BASE]||0) - (a.times[BASE]||0));
+  else if (sort === 'spread') rows.sort((a,b) => Math.max(...b.times)/best(b) - Math.max(...a.times)/best(a));
+  else if (sort === 'rust' && TUNED >= 0) rows.sort((a,b) => b.times[TUNED]/b.times[BASE] - a.times[TUNED]/a.times[BASE]);
+  else rows.sort((a,b) => a.q - b.q);
+  if (!rows.length){ $('q-table').innerHTML = '<p class="empty">No per-query data for this selection.</p>'; $('q-summary').innerHTML=''; return; }
+  const wins = ENG.map(() => 0);
+  rows.forEach(r => { const b = best(r); r.times.forEach((t,i) => { if (t === b) wins[i]++; }); });
+  const sums = ENG.map((_,i) => rows.reduce((s,r) => s + (r.times[i]||0), 0));
+  $('q-summary').innerHTML = `<span class="muted">Queries won at ${esc(sfLabel(sf))}:</span>` + ENG.map((e,i) => `<span>${dot(i)}${esc(e)} <b>${wins[i]}</b></span>`).join('');
+  let t = `<table><thead><tr><th scope="col">Query</th>${ENG.map((e,i) => `<th scope="col"><span class="eng">${dot(i)}${esc(e)}</span></th>`).join('')}</tr></thead><tbody>`;
+  t += rows.map(r => {
+    const b = best(r);
+    return `<tr><td><b>Q${r.q}</b></td>` + r.times.map((v,i) => {
+      const m = r.markers && r.markers[i] ? `<span class="mk" title="Flag ${esc(r.markers[i])} from source data">${esc(r.markers[i])}</span>` : '';
+      if (v == null) return `<td>—${m}</td>`;
+      const isBest = v === b;
+      return `<td class="${isBest?'best':''}" style="${isBest?'':shade(v/b)}" title="${esc(ENG[i])}: ${nf(v,3)} s (${nf(v/b,2)}× best)">${sec(v)}${m}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  t += `<tr><td><b>Sum</b></td>${sums.map(s => `<td><b>${sec(s)}</b></td>`).join('')}</tr>`;
+  t += `</tbody><caption>${esc(qBench)} ${esc(sfLabel(sf))}, ${rows.length} queries, in seconds. Hover a cell to see its multiple of the row's best time.</caption></table>`;
+  $('q-table').innerHTML = t;
+}
+seg($('q-bench'), benches.map(b => ({v:b,l:b})), qBench, v => { qBench = v; fillSf(); renderQueries(); });
+$('q-sf').addEventListener('change', renderQueries);
+$('q-sort').addEventListener('change', renderQueries);
+fillSf(); renderQueries();
+
+/* cluster */
+const cSfs = Object.keys(D.cluster || {});
+let cSf = cSfs[0];
+$('cluster-intro').textContent = `TPC-DS on ${cw.count||'—'}× ${cw.sku||'—'} workers (${cw.total_cores||'—'} cores, ${cw.total_ram_gb||'—'} GB in total) at scale factors ${cSfs.map(s => Number(s).toLocaleString('en-US')).join(', ')}. The comparison covers wall time, CPU consumption and memory footprint for each engine.`;
+function statusClass(s){ return s === 'pass' ? 'pass' : s === 'gap' ? 'gap' : 'other'; }
+function renderCluster(){
+  const [r,g] = D.cluster[cSf], w = D.wins[cSf] || [null,null];
+  const kp = (k, rv, gv, fmt) => {
+    const ratio = rv != null && gv ? rv/gv : null;
+    const better = ratio == null ? '' : (ratio < 1 ? 'faster' : 'slower');
+    return `<div class="kpi"><div class="k">${esc(k)}</div>
+      <div class="row"><span><span class="sw" style="background:var(--rust)"></span>Spark Rust</span><b>${fmt(rv)}</b></div>
+      <div class="row"><span><span class="sw" style="background:var(--gluten)"></span>Gluten</span><b>${fmt(gv)}</b></div>
+      <div class="delta">Rust / Gluten <span class="${better}">${x(ratio)}</span></div></div>`;
+  };
+  const tw = (w[0]||0) + (w[1]||0);
+  $('c-kpis').innerHTML =
+    kp('Wall time', r.time, g.time, dur) +
+    kp('CPU hours', r.cpuHours, g.cpuHours, v => nf(v,1)+' h') +
+    kp('Memory × time', r.memHours, g.memHours, v => nf(v,1)+' GB·h') +
+    kp('Avg active cores', r.cores, g.cores, v => nf(v,1)) +
+    `<div class="kpi"><div class="k">Per-query wins</div>
+      <div class="winbar" style="margin-top:.6rem" role="img" aria-label="Spark Rust wins ${w[0]}, Gluten wins ${w[1]}">
+        <div style="width:${tw?w[0]/tw*100:50}%;background:var(--rust)" title="Spark Rust">${w[0]}</div>
+        <div style="width:${tw?w[1]/tw*100:50}%;background:var(--gluten)" title="Gluten">${w[1]}</div></div>
+      <div class="delta">Spark Rust ${w[0]}, Gluten ${w[1]}, out of ${r.n} queries</div></div>`;
+
+  const rowsS = [
+    ['Queries', r.n, g.n, v => nf(v,0)],
+    ['Wall time (s)', r.time, g.time, v => nf(v,1)],
+    ['CPU (core-seconds)', r.cpu, g.cpu, v => nf(v,0)],
+    ['CPU hours', r.cpuHours, g.cpuHours, v => nf(v,2)],
+    ['Avg active cores', r.cores, g.cores, v => nf(v,2)],
+    ['Memory × time (GB·s)', r.memtime, g.memtime, v => nf(v,0)],
+    ['Memory × time (GB·h)', r.memHours, g.memHours, v => nf(v,2)],
+    ['Per-query mean', r.mean, g.mean, v => nf(v,2)],
+    ['Per-query p50', r.p50, g.p50, v => nf(v,2)],
+    ['Per-query p95', r.p95, g.p95, v => nf(v,2)],
+    ['Per-query max', r.max, g.max, v => nf(v,2)],
+  ];
+  $('c-summary').innerHTML = `<table><thead><tr><th scope="col">Metric</th><th scope="col">Spark Rust</th><th scope="col">Gluten</th><th scope="col">Ratio</th></tr></thead><tbody>` +
+    rowsS.map(([k,a,b,f]) => {
+      const ratio = a != null && b ? a/b : null;
+      const cls = k === 'Queries' || ratio == null ? '' : (ratio < 1 ? 'faster' : ratio > 1 ? 'slower' : '');
+      return `<tr><td>${esc(k)}</td><td>${f(a)}</td><td>${f(b)}</td><td class="${cls}">${k==='Queries'?'':x(ratio)}</td></tr>`;
+    }).join('') + `</tbody></table><p class="note" style="margin:.75rem 0 0">A ratio below 1 means Spark Rust used less time or fewer resources. The mean, p50, p95 and max rows are the source's per-query distribution statistics, given without units in the dataset.</p>`;
+
+  const qs = D.clusterQueries[cSf].filter(q => q.r != null && q.g != null && q.r > 0 && q.g > 0);
+  const vals = qs.flatMap(q => [q.r, q.g]);
+  const lo = Math.pow(10, Math.floor(Math.log10(Math.min(...vals)))), hi = Math.pow(10, Math.ceil(Math.log10(Math.max(...vals))));
+  const W = 520, P = 60, S = W - P - 16;
+  const sc = v => (Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * S;
+  const cx = v => P + sc(v), cy = v => 16 + S - sc(v);
+  const col = s => s === 'pass' ? '#1d6b45' : s === 'gap' ? '#c98a00' : '#5b5f99';
+  let svg = `<svg class="scatter" viewBox="0 0 ${W} ${W+8}" role="img" aria-label="Scatter plot of per-query wall time, Spark Rust versus Gluten, TPC-DS SF ${esc(cSf)}, log scales">`;
+  for (let d = lo; d <= hi; d *= 10) {
+    svg += `<line x1="${cx(d)}" x2="${cx(d)}" y1="16" y2="${16+S}" stroke="#e2e0da"/><line x1="${P}" x2="${P+S}" y1="${cy(d)}" y2="${cy(d)}" stroke="#e2e0da"/>`;
+    const lab = d >= 1 ? d.toLocaleString('en-US') : String(+d.toPrecision(1));
+    svg += `<text x="${cx(d)}" y="${16+S+18}" font-size="12" text-anchor="middle" fill="#656b76">${lab}</text><text x="${P-8}" y="${cy(d)+4}" font-size="12" text-anchor="end" fill="#656b76">${lab}</text>`;
+  }
+  svg += `<line x1="${cx(lo)}" y1="${cy(lo)}" x2="${cx(hi)}" y2="${cy(hi)}" stroke="#1b1d21" stroke-dasharray="5 4" opacity=".5"/>`;
+  svg += `<text x="${P+S-6}" y="${16+S-8}" font-size="12" text-anchor="end" fill="#1d6b45" font-weight="600">Spark Rust faster ↘</text>`;
+  svg += `<text x="${P+8}" y="32" font-size="12" fill="#9b2c2c" font-weight="600">↖ Gluten faster</text>`;
+  svg += qs.map(q => `<circle cx="${cx(q.g).toFixed(1)}" cy="${cy(q.r).toFixed(1)}" r="5" fill="${col(q.status)}" fill-opacity=".72" stroke="#fff" stroke-width="1"><title>Q${q.q}: Rust ${nf(q.r,2)} s · Gluten ${nf(q.g,2)} s · ratio ${nf(q.ratio,3)} · ${esc(q.status)}</title></circle>`).join('');
+  svg += `<text x="${P+S/2}" y="${W+4}" font-size="13" text-anchor="middle" fill="#4a4f58">Spark 4.1.1 Gluten wall time (s)</text>`;
+  svg += `<text transform="translate(14 ${16+S/2}) rotate(-90)" font-size="13" text-anchor="middle" fill="#4a4f58">Spark Rust wall time (s)</text></svg>`;
+  const omitted = D.clusterQueries[cSf].length - qs.length;
+  $('c-scatter').innerHTML = svg + (omitted ? `<p class="note muted" style="text-align:center;margin:.25rem 0 0">${omitted} ${omitted === 1 ? 'query is' : 'queries are'} not plotted because a paired result is missing.</p>` : '');
+  $('c-scatter-legend').innerHTML = `<span><span class="sw" style="background:#1d6b45"></span>pass</span><span><span class="sw" style="background:#c98a00"></span>gap</span><span><span class="sw" style="background:#5b5f99"></span>other status</span>`;
+
+  const statuses = [...new Set(D.clusterQueries[cSf].map(q => q.status))];
+  const sel = $('c-status'), prev = sel.value;
+  sel.innerHTML = `<option value="">All (${D.clusterQueries[cSf].length})</option>` + statuses.map(s => `<option value="${esc(s)}">${esc(s.length>48?s.slice(0,46)+'…':s)} (${D.clusterQueries[cSf].filter(q=>q.status===s).length})</option>`).join('');
+  sel.value = statuses.includes(prev) ? prev : '';
+  renderClusterTable();
+}
+function renderClusterTable(){
+  const f = $('c-status').value, sort = $('c-sort').value;
+  let qs = D.clusterQueries[cSf].filter(q => !f || q.status === f).slice();
+  const nz = v => v == null ? -Infinity : v;
+  if (sort === 'ratio-desc') qs.sort((a,b) => nz(b.ratio) - nz(a.ratio));
+  else if (sort === 'ratio-asc') qs.sort((a,b) => (a.ratio==null?Infinity:a.ratio) - (b.ratio==null?Infinity:b.ratio));
+  else if (sort === 'diff') qs.sort((a,b) => Math.abs(nz(b.diff)) - Math.abs(nz(a.diff)));
+  else qs.sort((a,b) => a.q - b.q);
+  if (!qs.length){ $('c-table').innerHTML = '<p class="empty">No queries match this filter.</p>'; return; }
+  const pair = (a, d) => `${nf(a[0],d)} <span class="muted">/</span> ${nf(a[1],d)}`;
+  let t = `<table><thead><tr><th scope="col">Query</th><th scope="col">Rust (s)</th><th scope="col">Gluten (s)</th><th scope="col">Ratio</th><th scope="col">Diff (s)</th><th scope="col">CPU core-s<span class="sub">Rust / Gluten</span></th><th scope="col">Avg cores<span class="sub">Rust / Gluten</span></th><th scope="col">Memory GB<span class="sub">Rust / Gluten</span></th><th scope="col">Mem·time GB·s<span class="sub">Rust / Gluten</span></th><th scope="col" style="text-align:left">Status</th></tr></thead><tbody>`;
+  t += qs.map(q => {
+    const cls = q.ratio == null ? '' : q.ratio < 1 ? 'faster' : q.ratio > 1 ? 'slower' : '';
+    return `<tr><td><b>Q${q.q}</b></td><td>${sec(q.r)}</td><td>${sec(q.g)}</td><td class="${cls}">${x(q.ratio,3)}</td><td>${q.diff==null?'—':(q.diff>0?'+':'')+nf(q.diff,2)}</td>
+      <td>${pair(q.cpu,1)}</td><td>${pair(q.cores,1)}</td><td>${pair(q.memory,2)}</td><td>${pair(q.memtime,1)}</td>
+      <td style="text-align:left;white-space:normal"><span class="pill ${statusClass(q.status)}">${esc(q.status)}</span></td></tr>`;
+  }).join('');
+  t += `</tbody><caption>TPC-DS ${esc(sfLabel(cSf))} cluster run, ${qs.length} rows. A ratio below 1 (green) means Spark Rust was faster.</caption></table>`;
+  $('c-table').innerHTML = t;
+}
+if (cSfs.length){
+  seg($('c-sf'), cSfs.map(s => ({v:s, l:sfLabel(s)})), cSf, v => { cSf = v; renderCluster(); });
+  $('c-status').addEventListener('change', renderClusterTable);
+  $('c-sort').addEventListener('change', renderClusterTable);
+  renderCluster();
+} else {
+  $('cluster').insertAdjacentHTML('beforeend','<p class="empty">No cluster data in this dataset.</p>');
+}
+
+/* method */
+$('hw').innerHTML = [
+  ['Single node', `${sn.sku||'—'} · ${sn.cores||'—'} cores · ${sn.ram_gb||'—'} GB RAM`],
+  ['Cluster workers', `${cw.count||'—'}× ${cw.sku||'—'} · ${cw.cores_each||'—'} cores / ${cw.ram_gb_each||'—'} GB each`],
+  ['Cluster total', `${cw.total_cores||'—'} cores · ${cw.total_ram_gb||'—'} GB RAM`],
+  ['Head node', hw.cluster_head_node ? JSON.stringify(hw.cluster_head_node) : 'Not specified'],
+  ['Provenance', hw.provenance || '—'],
+].map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+$('foot').innerHTML = `Generated from <code>engine-comparison-summary-data.json</code> (source report <code>${esc(D.source||'—')}</code>, SHA-256 <code style="word-break:break-all">${esc(D.sha256||'—')}</code>). This is a self-contained file with no network dependencies. Engines: ${ENG.map(esc).join(', ')}.`;
+})();
+</script>
+</body>
+</html>

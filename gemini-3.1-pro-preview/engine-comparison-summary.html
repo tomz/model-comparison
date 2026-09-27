@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engine Comparison Summary</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #2563eb;
+            --accent-color: #38bdf8;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0f172a;
+                --surface-color: #1e293b;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --border-color: #334155;
+                --primary-color: #3b82f6;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.125rem;
+        }
+
+        .dashboard {
+            display: grid;
+            gap: 2rem;
+            grid-template-columns: 1fr;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            overflow-x: auto;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .badge {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        th.num, td.num {
+            text-align: right;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            tbody tr:hover {
+                background-color: rgba(255, 255, 255, 0.02);
+            }
+        }
+
+        .engine-name {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .ratio-bar-container {
+            width: 100px;
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+
+        .ratio-bar {
+            height: 100%;
+            background-color: var(--primary-color);
+            border-radius: 3px;
+        }
+
+        .ratio-bar.baseline {
+            background-color: var(--success-color);
+        }
+        
+        .ratio-bar.slow {
+            background-color: var(--warning-color);
+        }
+
+        .ratio-bar.very-slow {
+            background-color: var(--danger-color);
+        }
+
+        .time-val {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .best-value {
+            color: var(--success-color);
+            font-weight: 600;
+        }
+
+        .null-value {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: -1px;
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Engine Comparison Summary</h1>
+            <p class="subtitle">Performance benchmark results across scale factors</p>
+        </header>
+
+        <div class="dashboard">
+            <!-- TPC-DS Section -->
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">TPC-DS Benchmark</h2>
+                    <span class="badge">99 Queries</span>
+                </div>
+                
+                <div class="tabs" id="tpcds-tabs">
+                    <div class="tab active" onclick="switchTab('tpcds', 'all')">All (Overall)</div>
+                    <div class="tab" onclick="switchTab('tpcds', '1')">SF 1</div>
+                    <div class="tab" onclick="switchTab('tpcds', '10')">SF 10</div>
+                    <div class="tab" onclick="switchTab('tpcds', '100')">SF 100</div>
+                    <div class="tab" onclick="switchTab('tpcds', '1000')">SF 1000</div>
+                </div>
+
+                <div id="tpcds-content">
+                    <!-- Content injected by JS -->
+                </div>
+            </section>
+
+            <!-- TPC-H Section -->
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">TPC-H Benchmark</h2>
+                    <span class="badge">22 Queries</span>
+                </div>
+                
+                <div class="tabs" id="tpch-tabs">
+                    <div class="tab active" onclick="switchTab('tpch', 'all')">All (Overall)</div>
+                    <div class="tab" onclick="switchTab('tpch', '1')">SF 1</div>
+                    <div class="tab" onclick="switchTab('tpch', '10')">SF 10</div>
+                    <div class="tab" onclick="switchTab('tpch', '100')">SF 100</div>
+                    <div class="tab" onclick="switchTab('tpch', '1000')">SF 1000</div>
+                </div>
+
+                <div id="tpch-content">
+                    <!-- Content injected by JS -->
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>Generated from engine-comparison-summary-data.json</p>
+        </footer>
+    </div>
+
+    <script>
+        const data = {
+            "engines": [
+                "Spark Rust 0.42.1 (default)",
+                "Spark Rust 0.42.1 (tuned)",
+                "DuckDB 1.5.5",
+                "Spark 4.1.1 Gluten",
+                "Spark 4.2"
+            ],
+            "totals": {
+                "TPC-DS": [
+                    {"canonical": 33.848302, "diff": 6.715517, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 99, "ratio": 1.247506, "sf": "1", "time": 33.848302},
+                    {"canonical": 31.963711, "diff": 4.830926, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 99, "ratio": 1.178048, "sf": "1", "time": 31.963711},
+                    {"canonical": 27.132785, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 99, "ratio": 1, "sf": "1", "time": 27.132785},
+                    {"canonical": 1224.537894, "diff": 1197.405109, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 99, "ratio": 45.131301, "sf": "1", "time": 1224.537894},
+                    {"canonical": 1142.469283, "diff": 1115.336498, "engine": "Spark 4.2", "matched": null, "n": 99, "ratio": 42.106598, "sf": "1", "time": 1142.469283},
+                    {"canonical": 79.916638, "diff": 15.14581, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 99, "ratio": 1.233837, "sf": "10", "time": 79.916638},
+                    {"canonical": 75.578705, "diff": 10.807877, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 99, "ratio": 1.166863, "sf": "10", "time": 75.578705},
+                    {"canonical": 64.770828, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 99, "ratio": 1, "sf": "10", "time": 64.770828},
+                    {"canonical": 1492.907612, "diff": 1428.136784, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 99, "ratio": 23.049074, "sf": "10", "time": 1492.907612},
+                    {"canonical": 1357.370072, "diff": 1292.599244, "engine": "Spark 4.2", "matched": null, "n": 99, "ratio": 20.956503, "sf": "10", "time": 1357.370072},
+                    {"canonical": 772.298476, "diff": -7.856355, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 99, "ratio": 0.98993, "sf": "100", "time": 772.298476},
+                    {"canonical": 764.557195, "diff": -15.597636, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 99, "ratio": 0.980007, "sf": "100", "time": 764.557195},
+                    {"canonical": 780.154831, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 99, "ratio": 1, "sf": "100", "time": 780.154831},
+                    {"canonical": 2400.21694, "diff": 1620.062109, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 99, "ratio": 3.07659, "sf": "100", "time": 2400.21694},
+                    {"canonical": 2775.72982, "diff": 1995.574989, "engine": "Spark 4.2", "matched": null, "n": 99, "ratio": 3.557922, "sf": "100", "time": 2775.72982},
+                    {"canonical": 10418.903457, "diff": -78.263764, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 99, "ratio": 0.992544, "sf": "1000", "time": 10418.903457},
+                    {"canonical": 10082.325802, "diff": -423.190094, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 99, "ratio": 0.959685, "sf": "1000", "time": 10073.977127},
+                    {"canonical": 10497.167221, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 99, "ratio": 1, "sf": "1000", "time": 10497.167221},
+                    {"canonical": null, "diff": 3380.85127, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 99, "ratio": 1.322073, "sf": "1000", "time": 13878.018491},
+                    {"canonical": 18917.640231, "diff": 8420.47301, "engine": "Spark 4.2", "matched": null, "n": 99, "ratio": 1.802166, "sf": "1000", "time": 18917.640231},
+                    {"canonical": 11304.966873, "diff": -64.258792, "engine": "Spark Rust 0.42.1 (default)", "matched": 1.18203, "n": 396, "ratio": 0.994348, "sf": "all", "time": 11304.966873},
+                    {"canonical": 10954.425413, "diff": -423.148927, "engine": "Spark Rust 0.42.1 (tuned)", "matched": 1.013303, "n": 396, "ratio": 0.962781, "sf": "all", "time": 10946.076738},
+                    {"canonical": 11369.225665, "diff": 0, "engine": "DuckDB 1.5.5", "matched": 1, "n": 396, "ratio": 1, "sf": "all", "time": 11369.225665}
+                ],
+                "TPC-H": [
+                    {"canonical": 6.096135, "diff": 1.507996, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 22, "ratio": 1.328673, "sf": "1", "time": 6.096135},
+                    {"canonical": 5.677557, "diff": 1.089418, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 22, "ratio": 1.237442, "sf": "1", "time": 5.677557},
+                    {"canonical": 4.588139, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 22, "ratio": 1, "sf": "1", "time": 4.588139},
+                    {"canonical": 243.099002, "diff": 238.510863, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 22, "ratio": 52.984228, "sf": "1", "time": 243.099002},
+                    {"canonical": 229.049747, "diff": 224.461608, "engine": "Spark 4.2", "matched": null, "n": 22, "ratio": 49.922146, "sf": "1", "time": 229.049747},
+                    {"canonical": 41.30465, "diff": 3.65108, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 22, "ratio": 1.096965, "sf": "10", "time": 41.30465},
+                    {"canonical": 40.510259, "diff": 2.856689, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 22, "ratio": 1.075868, "sf": "10", "time": 40.510259},
+                    {"canonical": 37.65357, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 22, "ratio": 1, "sf": "10", "time": 37.65357},
+                    {"canonical": 289.230722, "diff": 251.577152, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 22, "ratio": 7.681363, "sf": "10", "time": 289.230722},
+                    {"canonical": 299.291126, "diff": 261.637556, "engine": "Spark 4.2", "matched": null, "n": 22, "ratio": 7.948546, "sf": "10", "time": 299.291126},
+                    {"canonical": 493.900658, "diff": 13.66666, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 22, "ratio": 1.028458, "sf": "100", "time": 493.900658},
+                    {"canonical": 492.968174, "diff": 12.734176, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 22, "ratio": 1.026517, "sf": "100", "time": 492.968174},
+                    {"canonical": 480.233998, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 22, "ratio": 1, "sf": "100", "time": 480.233998},
+                    {"canonical": 851.915935, "diff": 371.681937, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 22, "ratio": 1.77396, "sf": "100", "time": 851.915935},
+                    {"canonical": 1089.140554, "diff": 608.906556, "engine": "Spark 4.2", "matched": null, "n": 22, "ratio": 2.267937, "sf": "100", "time": 1089.140554},
+                    {"canonical": 5510.720959, "diff": 150.119932, "engine": "Spark Rust 0.42.1 (default)", "matched": null, "n": 22, "ratio": 1.028004, "sf": "1000", "time": 5510.720959},
+                    {"canonical": 5608.437131, "diff": 247.836104, "engine": "Spark Rust 0.42.1 (tuned)", "matched": null, "n": 22, "ratio": 1.046233, "sf": "1000", "time": 5608.437131},
+                    {"canonical": 5360.601027, "diff": 0, "engine": "DuckDB 1.5.5", "matched": null, "n": 22, "ratio": 1, "sf": "1000", "time": 5360.601027},
+                    {"canonical": 11768.80342, "diff": 6408.202393, "engine": "Spark 4.1.1 Gluten", "matched": null, "n": 22, "ratio": 2.195426, "sf": "1000", "time": 11768.80342},
+                    {"canonical": null, "diff": 11305.955672, "engine": "Spark 4.2", "matched": null, "n": 22, "ratio": 3.109084, "sf": "1000", "time": 16666.556699},
+                    {"canonical": 6052.022402, "diff": 168.945667, "engine": "Spark Rust 0.42.1 (default)", "matched": 1.018584, "n": 88, "ratio": 1.028717, "sf": "all", "time": 6052.022402},
+                    {"canonical": 6147.59312, "diff": 264.516385, "engine": "Spark Rust 0.42.1 (tuned)", "matched": 1.044962, "n": 88, "ratio": 1.044962, "sf": "all", "time": 6147.59312},
+                    {"canonical": 5883.076735, "diff": 0, "engine": "DuckDB 1.5.5", "matched": 1, "n": 88, "ratio": 1, "sf": "all", "time": 5883.076735},
+                    {"canonical": 13153.049079, "diff": 7269.972344, "engine": "Spark 4.1.1 Gluten", "matched": 2.235743, "n": 88, "ratio": 2.235743, "sf": "all", "time": 13153.049079},
+                    {"canonical": null, "diff": 12400.961392, "engine": "Spark 4.2", "matched": 3.141528, "n": 88, "ratio": 3.107904, "sf": "all", "time": 18284.038127}
+                ]
+            }
+        };
+
+        function formatNumber(num) {
+            if (num === null || num === undefined) return '<span class="null-value">N/A</span>';
+            return new Intl.NumberFormat('en-US', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            }).format(num);
+        }
+
+        function getRatioBarClass(ratio) {
+            if (ratio <= 1.05) return 'baseline';
+            if (ratio <= 2.0) return '';
+            if (ratio <= 5.0) return 'slow';
+            return 'very-slow';
+        }
+
+        function renderTable(benchmark, sf) {
+            const items = data.totals[benchmark].filter(item => item.sf === sf);
+            
+            // Sort by time ascending
+            items.sort((a, b) => {
+                if (a.time === null) return 1;
+                if (b.time === null) return -1;
+                return a.time - b.time;
+            });
+
+            if (items.length === 0) {
+                return '<p style="padding: 1rem; color: var(--text-muted);">No data available for this scale factor.</p>';
+            }
+
+            const bestTime = items[0].time;
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Engine</th>
+                            <th class="num">Time (s)</th>
+                            <th class="num">Ratio</th>
+                            <th class="num">Diff (s)</th>
+                            <th class="num">Queries</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            items.forEach(item => {
+                const isBest = item.time === bestTime;
+                const timeClass = isBest ? 'best-value' : '';
+                
+                // Calculate bar width (max 100%, log scale for very large ratios)
+                let barWidth = 0;
+                if (item.ratio) {
+                    barWidth = Math.min(100, (item.ratio / 5) * 100);
+                    if (item.ratio > 5) {
+                        barWidth = 80 + Math.min(20, Math.log10(item.ratio) * 10);
+                    }
+                }
+
+                html += `
+                    <tr>
+                        <td class="engine-name">${item.engine}</td>
+                        <td class="num time-val ${timeClass}">${formatNumber(item.time)}</td>
+                        <td class="num time-val">
+                            ${formatNumber(item.ratio)}x
+                            <div class="ratio-bar-container">
+                                <div class="ratio-bar ${getRatioBarClass(item.ratio)}" style="width: ${barWidth}%"></div>
+                            </div>
+                        </td>
+                        <td class="num time-val">${item.diff > 0 ? '+' : ''}${formatNumber(item.diff)}</td>
+                        <td class="num">${item.n}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            return html;
+        }
+
+        function switchTab(benchmark, sf) {
+            // Update tabs
+            const tabs = document.querySelectorAll(`#${benchmark}-tabs .tab`);
+            tabs.forEach(tab => {
+                if (tab.textContent.toLowerCase().includes(sf === 'all' ? 'all' : `sf ${sf}`)) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // Update content
+            const contentDiv = document.getElementById(`${benchmark}-content`);
+            contentDiv.innerHTML = renderTable(benchmark === 'tpcds' ? 'TPC-DS' : 'TPC-H', sf);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            switchTab('tpcds', 'all');
+            switchTab('tpch', 'all');
+        });
+    </script>
+</body>
+</html>

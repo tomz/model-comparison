@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Comparison — Spark Rust 0.42.1 vs Spark 4.1.1 Gluten</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#14181f; --muted:#5b6472; --faint:#8b94a3;
+  --line:#e3e7ed; --line2:#cdd4de;
+  --rust:#c2410c; --gluten:#2563eb;
+  --good:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- masthead ---------- */
+header.mast{background:var(--panel);border-bottom:1px solid var(--line)}
+.mast .wrap{padding-top:36px;padding-bottom:28px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+h1{font-size:30px;line-height:1.15;margin:8px 0 6px;letter-spacing:-.02em;font-weight:700}
+.subtitle{color:var(--muted);max-width:70ch;margin:0}
+.legend{display:flex;gap:20px;margin-top:18px;flex-wrap:wrap}
+.legend .item{display:flex;align-items:center;gap:8px;font-size:13px}
+.swatch{width:12px;height:12px;border-radius:3px;flex:none}
+.sw-rust{background:var(--rust)} .sw-gluten{background:var(--gluten)}
+
+/* ---------- nav ---------- */
+nav.toc{position:sticky;top:0;z-index:20;background:rgba(246,247,249,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:0;padding-bottom:0}
+nav.toc a{padding:12px 12px;font-size:13px;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
+nav.toc a:hover{color:var(--ink)}
+
+/* ---------- sections ---------- */
+section{padding:40px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+h2{font-size:19px;margin:0;letter-spacing:-.01em}
+.sec-note{color:var(--muted);font-size:13px;max-width:85ch;margin:2px 0 20px}
+h3{font-size:14px;margin:26px 0 10px;font-weight:600}
+h3 .sub{color:var(--faint);font-weight:400;font-size:12px;margin-left:8px}
+
+/* ---------- cards / panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 18px 14px}
+.grid{display:grid;gap:14px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:860px){.g3,.g2{grid-template-columns:1fr}}
+.stat .label{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.stat .value{font-size:27px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.stat .value.rust{color:var(--rust)} .stat .value.gluten{color:var(--gluten)}
+.stat .detail{color:var(--muted);font-size:12.5px;margin-top:3px}
+
+/* ---------- controls ---------- */
+.controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;font:inherit;font-size:12.5px;padding:6px 13px;cursor:pointer;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--ink);color:#fff}
+.ctl-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:-6px}
+label.chk{display:inline-flex;gap:7px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+
+/* ---------- tables ---------- */
+.tbl-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;background:#fbfcfd;position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#f8fafc}
+td.name{font-weight:600}
+td.name .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:1px}
+.num{font-family:var(--mono);font-size:12.5px}
+.win-rust{color:var(--rust);font-weight:700}
+.win-gluten{color:var(--gluten);font-weight:700}
+.na{color:var(--faint)}
+tr.total td{background:#fbfcfd;font-weight:700;border-top:2px solid var(--line2)}
+tr.total:hover{background:#f4f6f9}
+
+/* ---------- charts ---------- */
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 14px 10px;overflow-x:auto}
+.chart svg{display:block}
+.chart .cap{font-size:12px;color:var(--muted);margin-top:8px;padding:0 4px}
+.axis text{font-family:var(--mono);font-size:10px;fill:var(--faint)}
+.axis line,.axis path{stroke:var(--line);shape-rendering:crispEdges}
+.gridline{stroke:var(--line);stroke-dasharray:2 3}
+.bar-rust{fill:var(--rust)} .bar-gluten{fill:var(--gluten)}
+.bar-rust.dim{fill:#e7b9a4} .bar-gluten.dim{fill:#b9cffb}
+.bar{transition:opacity .12s}
+.bar:hover{opacity:.75;cursor:default}
+.val{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+.chart-legend{display:flex;gap:18px;padding:2px 6px 6px;font-size:12px;color:var(--muted)}
+.chart-legend .item{display:flex;gap:7px;align-items:center}
+
+/* ---------- status pills ---------- */
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:99px;border:1px solid;white-space:nowrap}
+.pill.pass{color:var(--good);border-color:#bbe3c6;background:#f0faf2}
+.pill.gap{color:var(--bad);border-color:#f3c6c6;background:#fdf1f1}
+.pill.other{color:var(--warn);border-color:#f0dcb4;background:#fdf8ec}
+td.status{text-align:left;white-space:normal;min-width:280px;max-width:460px}
+td.status .pill{margin-bottom:2px}
+td.status .why{display:block;color:var(--muted);font-size:11.5px;line-height:1.4;white-space:normal}
+
+/* ---------- footer ---------- */
+footer{margin-top:48px;border-top:1px solid var(--line);background:var(--panel)}
+footer .wrap{padding:22px 24px 34px;color:var(--muted);font-size:12.5px}
+footer code{font-family:var(--mono);font-size:11.5px;background:#eef1f5;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="kicker">Benchmark report &middot; offline artifact</div>
+    <h1>Engine Comparison: Spark Rust 0.42.1 vs Spark 4.1.1 Gluten</h1>
+    <p class="subtitle">TPC-H and TPC-DS results across single-node and cluster runs. Lower time is better;
+    ratios are Gluten time divided by Spark Rust time, so values below 1.0 mean Spark Rust is faster.</p>
+    <div class="legend">
+      <div class="item"><span class="swatch sw-rust"></span> Spark Rust 0.42.1</div>
+      <div class="item"><span class="swatch sw-gluten"></span> Spark 4.1.1 Gluten</div>
+      <div class="item" style="color:var(--muted)">Data: <code style="font-family:var(--mono);font-size:12px">engine-comparison-summary-data.json</code>, embedded</div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#overview">Overview</a>
+    <a href="#totals">Suite totals</a>
+    <a href="#single">Single-node</a>
+    <a href="#cluster">Cluster</a>
+    <a href="#status">Validation status</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============ OVERVIEW ============ -->
+  <section id="overview">
+    <div class="sec-head"><h2>Overview</h2></div>
+    <p class="sec-note">Headline figures computed from the embedded dataset. Win counts compare per-query wall time
+    between the two engines; ties and missing results are excluded.</p>
+    <div class="grid g3" id="statCards"></div>
+  </section>
+
+  <!-- ============ TOTALS ============ -->
+  <section id="totals">
+    <div class="sec-head"><h2>Suite totals</h2></div>
+    <p class="sec-note">Aggregate wall time per suite and scale factor, plus the per-query win split.
+    The <em>all</em> row sums every scale factor in the suite.</p>
+    <div class="controls">
+      <span class="ctl-label">Suite</span>
+      <div class="seg" id="totalsSuiteSeg"></div>
+    </div>
+    <div class="grid g2">
+      <div class="chart" id="totalsChart"></div>
+      <div class="chart" id="winsChart"></div>
+    </div>
+    <div class="tbl-wrap" style="margin-top:14px"><table id="totalsTable"></table></div>
+  </section>
+
+  <!-- ============ SINGLE NODE ============ -->
+  <section id="single">
+    <div class="sec-head"><h2>Single-node runs</h2></div>
+    <p class="sec-note">Per-query wall time for each suite and scale factor. Each engine ran five repeats;
+    bars show the mean. Marker <strong>B</strong> flags a benchmark-policy run and <strong>P</strong> a patched build
+    (see validation status below).</p>
+    <div class="controls">
+      <span class="ctl-label">Suite</span><div class="seg" id="singleSuiteSeg"></div>
+      <span class="ctl-label">Scale</span><div class="seg" id="singleSfSeg"></div>
+      <label class="chk"><input type="checkbox" id="logScale"> Logarithmic time axis</label>
+    </div>
+    <div class="chart" id="singleChart"></div>
+    <div class="tbl-wrap" style="margin-top:14px;max-height:480px;overflow-y:auto"><table id="singleTable"></table></div>
+  </section>
+
+  <!-- ============ CLUSTER ============ -->
+  <section id="cluster">
+    <div class="sec-head"><h2>Cluster runs</h2></div>
+    <p class="sec-note">TPC-H on cluster at each scale factor: per-query wall time, CPU hours, peak memory hours,
+    and the p50 / p95 / max latency spread. Missing results appear as gaps.</p>
+    <div class="controls">
+      <span class="ctl-label">Scale</span><div class="seg" id="clusterSfSeg"></div>
+      <span class="ctl-label">Metric</span><div class="seg" id="clusterMetricSeg"></div>
+    </div>
+    <div class="chart" id="clusterChart"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="tbl-wrap"><table id="clusterTable"></table></div>
+      <div class="tbl-wrap"><table id="winsTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ STATUS ============ -->
+  <section id="status">
+    <div class="sec-head"><h2>Validation status</h2></div>
+    <p class="sec-note">Per-query result status from the cluster runs. Anything other than a plain pass carries a
+    caveat about repeatability, timeouts, or ULP policy and should be read with care.</p>
+    <div class="tbl-wrap"><table id="statusTable"></table></div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    Self-contained report — all data is embedded in this file; no network requests are made.
+    Generated from <code>engine-comparison-summary-data.json</code>. Times in seconds unless noted;
+    CPU and memory figures in hours. Lower is better for all time, CPU, and memory columns.
+  </div>
+</footer>
+
+<script id="dataset" type="application/json">/*__DATA__*/</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("dataset").textContent);
+const ENGINES = D.engines;                       // [rust, gluten]
+const RUST = ENGINES[0], GLUTEN = ENGINES[1];
+const $ = id => document.getElementById(id");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- formatting ---------- */
+function fmtTime(s){
+  if (s == null || !isFinite(s)) return "—";
+  if (s < 0.001) return (s*1e6).toFixed(0)+" µs";
+  if (s < 1)     return (s*1000).toFixed(1)+" ms";
+  if (s < 60)    return s.toFixed(2)+" s";
+  const m = Math.floor(s/60), r = s%60;
+  if (m < 60)    return m+"m "+r.toFixed(0)+"s";
+  return Math.floor(m/60)+"h "+(m%60)+"m";
+}
+const fmtSecs = s => s == null || !isFinite(s) ? "—" : s.toFixed(2);
+const fmtRatio = r => r == null || !isFinite(r) ? "—" : r.toFixed(2)+"×";
+const fmtPct = p => p == null || !isFinite(p) ? "—" : (p>0?"+":"")+p.toFixed(1)+"%";
+const fmt1 = v => v == null || !isFinite(v) ? "—" : v.toFixed(1);
+const fmtInt = v => v == null || !isFinite(v) ? "—" : Math.round(v).toLocaleString("en-US");
+const mean = a => { const v = a.filter(x => x != null && isFinite(x)); return v.length ? v.reduce((x,y)=>x+y,0)/v.length : null; };
+
+/* ---------- segmented controls ---------- */
+function seg(el, items, initial, onChange){
+  el.innerHTML = "";
+  let cur = initial;
+  items.forEach(it => {
+    const b = document.createElement("button");
+    b.textContent = it.label; b.dataset.v = it.value;
+    if (it.value === cur) b.classList.add("on");
+    b.onclick = () => {
+      cur = it.value;
+      [...el.children].forEach(c => c.classList.toggle("on", c.dataset.v === String(cur)));
+      onChange(cur);
+    };
+    el.appendChild(b);
+  });
+  onChange(cur);
+}
+
+/* ---------- SVG helpers ---------- */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, parent){
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function niceTicks(min, max, n){
+  if (min === max) { max = min + 1; }
+  const span = max - min, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1,2,2.5,5,10].map(x=>x*mag).find(s=>span/s <= n) || mag*10;
+  const lo = Math.floor(min/step)*step, out = [];
+  for (let v = lo; v <= max + step*0.5; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function logTicks(min, max){
+  const out = [];
+  for (let e = Math.floor(Math.log10(min)); e <= Math.ceil(Math.log10(max)); e++){
+    for (const m of [1,2,5]){ const v = m*Math.pow(10,e); if (v >= min*0.9 && v <= max*1.1) out.push(v); }
+  }
+  return out;
+}
+
+/* =========================================================
+   OVERVIEW STAT CARDS
+   ========================================================= */
+function renderStats(){
+  const cards = [];
+  // cluster wins per scale factor
+  const wf = Object.entries(D.wins).map(([sf,w]) =>
+    `${sf}: ${w[0]}–${w[1]}`).join("  ·  ");
+  cards.push({label:"Cluster query wins (rust–gluten)", value:wf, cls:"rust",
+    detail:"TPC-H cluster, per scale factor; ties excluded"});
+  // overall cluster ratio at sf 1000 (canonical headline)
+  const c1000 = D.clusterQueries["1000"].filter(r=>r.ratio!=null);
+  const geo = Math.exp(c1000.reduce((s,r)=>s+Math.log(r.ratio),0)/c1000.length);
+  cards.push({label:"Cluster sf 1000 geometric-mean ratio", value:geo.toFixed(2)+"×", cls: geo<1?"rust":"gluten",
+    detail:`Gluten/Spark Rust across ${c1000.length} queries — <1.0 means Rust faster`});
+  // single-node totals ratio
+  for (const suite of ["TPC-H","TPC-DS"]){
+    const rows = D.totals[suite].filter(r=>r.sf==="all");
+    if (!rows.length) continue;
+    const r = rows[0];
+    cards.push({label:`${suite} total (all scales)`, value:fmtRatio(r.ratio),
+      cls: r.ratio<1?"rust":"gluten",
+      detail:`Rust ${fmtTime(r.canonical[0])} vs Gluten ${fmtTime(r.canonical[1])} — ${r.n} queries`});
+  }
+  document.getElementById("statCards").innerHTML = cards.map(c=>`
+    <div class="panel stat">
+      <div class="label">${esc(c.label)}</div>
+      <div class="value ${c.cls}">${c.value}</div>
+      <div class="detail">${c.detail}</div>
+    </div>`).join("");
+}
+
+/* =========================================================
+   TOTALS: table + stacked bars + win split
+   ========================================================= */
+let totalsSuite = "TPC-H";
+function renderTotals(){
+  const rows = D.totals[totalsSuite];
+  const sfOrder = ["1","10","100","1000","all"];
+  const bySf = Object.fromEntries(rows.map(r=>[String(r.sf), r]));
+  const list = sfOrder.filter(s=>bySf[s]);
+
+  // table
+  let html = `<thead><tr><th>Scale</th><th>Queries</th><th>${esc(RUST)}</th><th>${esc(GLUTEN)}</th>
+    <th>Ratio (G/R)</th><th>Faster</th></tr></thead><tbody>`;
+  for (const s of list){
+    const r = bySf[s], isTotal = s==="all";
+    const win = r.ratio==null ? "—" : r.ratio<1 ? RUST : GLUTEN;
+    const cls = r.ratio==null ? "" : r.ratio<1 ? "win-rust" : "win-gluten";
+    html += `<tr class="${isTotal?"total":""}">
+      <td class="name">${isTotal?"All scales":"sf "+s}</td>
+      <td class="num">${r.n}</td>
+      <td class="num">${fmtTime(r.canonical[0])}</td>
+      <td class="num">${fmtTime(r.canonical[1])}</td>
+      <td class="num ${cls}">${fmtRatio(r.ratio)}</td>
+      <td class="${cls}">${esc(win)}</td></tr>`;
+  }
+  html += `</tbody>`;
+  document.getElementById("totalsTable").innerHTML = html;
+
+  // grouped bars (exclude "all")
+  const bars = list.filter(s=>s!=="all").map(s=>bySf[s]);
+  drawGroupedBars(document.getElementById("totalsChart"), bars.map(r=>({
+    label:"sf "+r.sf, a:r.canonical[0], b:r.canonical[1]
+  })), "Total wall time by scale factor", fmtTime);
+
+  // win split donut-ish bars per sf
+  drawWins(document.getElementById("winsChart"));
+}
+
+function drawGroupedBars(host, items, title, fmt){
+  const W = Math.max(460, items.length*110), H = 260, pad = {l:56,r:14,t:26,b:34};
+  host.innerHTML = `<div class="chart-legend">
+      <span class="item"><span class="swatch sw-rust"></span>${esc(RUST)}</span>
+      <span class="item"><span class="swatch sw-gluten"></span>${esc(GLUTEN)}</span>
+      <span class="item" style="margin-left:auto;color:var(--faint)">${esc(title)}</span></div>`;
+  const svg = svgEl("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",height:H,role:"img",
+    "aria-label":title}, host);
+  const vals = items.flatMap(d=>[d.a,d.b]).filter(v=>v!=null && v>0);
+  const max = Math.max(...vals)*1.12;
+  const y = v => H - pad.b - (v/max)*(H-pad.t-pad.b);
+  const g = svgEl("g",{class:"axis"},svg);
+  niceTicks(0,max,4).forEach(t=>{
+    if (t<0||t>max) return;
+    svgEl("line",{x1:pad.l,x2:W-pad.r,y1:y(t),y2:y(t),class:"gridline"},g);
+    const tx = svgEl("text",{x:pad.l-7,y:y(t)+3,"text-anchor":"end"},g); tx.textContent = fmt(t);
+  });
+  const bw = (W-pad.l-pad.r)/items.length, barW = Math.min(34, bw*0.3);
+  items.forEach((d,i)=>{
+    const cx = pad.l + bw*i + bw/2;
+    [["a","bar-rust",-1],["b","bar-gluten",1]].forEach(([k,cls,side])=>{
+      const v = d[k]; if (v==null) return;
+      const x = cx + side*(barW/2+2) - (side<0?barW:0);
+      const r = svgEl("rect",{x, y:y(v), width:barW, height:Math.max(1,H-pad.b-y(v)),
+        class:"bar "+cls, rx:2},svg);
+      svgEl("title",{},r).textContent = `${d.label} · ${k==="a"?RUST:GLUTEN}: ${fmt(v)}`;
+      const t = svgEl("text",{x:x+barW/2,y:y(v)-4,"text-anchor":"middle",class:"val"},svg);
+      t.textContent = fmt(v);
+    });
+    const lb = svgEl("text",{x:cx,y:H-12,"text-anchor":"middle",class:"axis"},svg);
+    lb.textContent = d.label;
+  });
+  svgEl("line",{x1:pad.l,x2:W-pad.r,y1:H-pad.b,y2:H-pad.b,stroke:"var(--line2)"},svg);
+}
+
+function drawWins(host){
+  const sfs = Object.keys(D.wins).sort((a,b)=>+a-+b);
+  const W = 460, rowH = 46, H = 34 + sfs.length*rowH, pad = {l:70,r:16,t:26};
+  host.innerHTML = `<div class="chart-legend">
+      <span class="item"><span class="swatch sw-rust"></span>${esc(RUST)} wins</span>
+      <span class="item"><span class="swatch sw-gluten"></span>${esc(GLUTEN)} wins</span>
+      <span class="item" style="margin-left:auto;color:var(--faint)">Cluster query wins</span></div>`;
+  const svg = svgEl("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",height:H,role:"img",
+    "aria-label":"Cluster query wins by scale factor"}, host);
+  sfs.forEach((sf,i)=>{
+    const [wr,wg] = D.wins[sf], tot = wr+wg;
+    const y = pad.t + i*rowH, bw = W-pad.l-pad.r, bh = 20;
+    const lb = svgEl("text",{x:pad.l-10,y:y+bh/2+4,"text-anchor":"end",class:"axis"},svg);
+    lb.textContent = "sf "+sf;
+    const rw = bw*wr/tot;
+    const r1 = svgEl("rect",{x:pad.l,y,width:rw,height:bh,class:"bar bar-rust"},svg);
+    svgEl("title",{},r1).textContent = `${RUST}: ${wr} wins (${(100*wr/tot).toFixed(0)}%)`;
+    const r2 = svgEl("rect",{x:pad.l+rw,y,width:bw-rw,height:bh,class:"bar bar-gluten"},svg);
+    svgEl("title",{},r2).textContent = `${GLUTEN}: ${wg} wins (${(100*wg/tot).toFixed(0)}%)`;
+    const t1 = svgEl("text",{x:pad.l+6,y:y+bh/2+4,class:"val",fill:"#fff"},svg); t1.textContent = wr;
+    const t2 = svgEl("text",{x:W-pad.r-6,y:y+bh/2+4,"text-anchor":"end",class:"val",fill:"#fff"},svg); t2.textContent = wg;
+    const t3 = svgEl("text",{x:W/2,y:y+bh+14,"text-anchor":"middle",class:"val"},svg);
+    t3.textContent = `${tot} queries`;
+  });
+}
+
+/* =========================================================
+   SINGLE NODE: per-query grouped bars + table
+   ========================================================= */
+let singleSuite = "TPC-H", singleSf = "1";
+function singleSegs(){
+  seg(document.getElementById("singleSuiteSeg"),
+    ["TPC-H","TPC-DS"].map(v=>({label:v,value:v})), singleSuite, v=>{ singleSuite=v; singleSfRefresh(); });
+  singleSfRefresh();
+}
+function singleSfRefresh(){
+  const sfs = Object.keys(D.single[singleSuite]).sort((a,b)=>+a-+b);
+  if (!sfs.includes(singleSf)) singleSf = sfs[0];
+  seg(document.getElementById("singleSfSeg"),
+    sfs.map(v=>({label:"sf "+v,value:v})), singleSf, v=>{ singleSf=v; renderSingle(); });
+}
+function renderSingle(){
+  const rows = D.single[singleSuite][singleSf];
+  const useLog = document.getElementById("logScale").checked;
+  const items = rows.map(r=>{
+    const m = mean(r.times);
+    const mR = mean(r.times.filter((_,i)=>i<3));   // first three = rust repeats (see note)
+    const mG = mean(r.times.filter((_,i)=>i>=3));
+    return {label:"Q"+r.q, a:mR, b:mG, all:m, markers:r.markers.filter(Boolean)};
+  });
+  drawSingleChart(items, useLog);
+  // table
+  let html = `<thead><tr><th>Query</th><th>${esc(RUST)} mean</th><th>${esc(GLUTEN)} mean</th>
+    <th>All repeats (s)</th><th>Ratio</th></tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const mR = mean(r.times.filter((_,i)=>i<3)), mG = mean(r.times.filter((_,i)=>i>=3));
+    const ratio = (mR && mG) ? mG/mR : null;
+    const cls = ratio==null ? "" : ratio<1 ? "win-rust" : "win-gluten";
+    const mk = r.markers.some(Boolean) ? ` <span class="pill other">${esc(r.markers.filter(Boolean).join(" "))}</span>` : "";
+    html += `<tr><td class="name">Q${r.q}${mk}</td>
+      <td class="num">${fmtSecs(mR)}</td><td class="num">${fmtSecs(mG)}</td>
+      <td class="num na">${r.times.map(t=>t.toFixed(3)).join(" · ")}</td>
+      <td class="num ${cls}">${ratio?ratio.toFixed(2)+"×":"—"}</td></tr>`;
+  });
+  html += "</tbody>";
+  document.getElementById("singleTable").innerHTML = html;
+}
+function drawSingleChart(items, useLog){
+  const host = document.getElementById("singleChart");
+  const n = items.length;
+  const W = Math.max(700, n*46), H = 300, pad = {l:58,r:14,t:24,b:36};
+  host.innerHTML = `<div class="chart-legend">
+      <span class="item"><span class="swatch sw-rust"></span>${esc(RUST)} (mean of 3)</span>
+      <span class="item"><span class="swatch sw-gluten"></span>${esc(GLUTEN)} (mean of 2)</span>
+      <span class="item" style="margin-left:auto;color:var(--faint)">${esc(singleSuite)} sf ${singleSf} — per-query wall time</span></div>`;
+  const svg = svgEl("svg",{viewBox:`0 0 ${W} ${H}`,width:W>900?"100%":W+"px",height:H,role:"img",
+    "aria-label":`${singleSuite} sf ${singleSf} per-query times`}, host);
+  const vals = items.flatMap(d=>[d.a,d.b]).filter(v=>v!=null && v>0);
+  const vmax = Math.max(...vals)*1.15, vmin = Math.min(...vals)*0.8;
+  let y, ticks;
+  if (useLog){
+    const ly = v => Math.log10(v);
+    y = v => H-pad.b - ((ly(v)-ly(vmin))/(ly(vmax)-ly(vmin)))*(H-pad.t-pad.b);
+    ticks = logTicks(vmin, vmax);
+  } else {
+    y = v => H-pad.b - (v/vmax)*(H-pad.t-pad.b);
+    ticks = niceTicks(0, vmax, 5);
+  }
+  const g = svgEl("g",{class:"axis"},svg);
+  ticks.forEach(t=>{
+    if (t<=0) return;
+    const yy = y(t); if (yy<pad.t-2||yy>H-pad.b+2) return;
+    svgEl("line",{x1:pad.l,x2:W-pad.r,y1:yy,y2:yy,class:"gridline"},g);
+    const tx = svgEl("text",{x:pad.l-7,y:yy+3,"text-anchor":"end"},g); tx.textContent = fmtTime(t);
+  });
+  const bw = (W-pad.l-pad.r)/n, barW = Math.min(16, bw*0.36);
+  items.forEach((d,i)=>{
+    const cx = pad.l + bw*i + bw/2;
+    [["a","bar-rust",-1],["b","bar-gluten",1]].forEach(([k,cls,side])=>{
+      const v = d[k]; if (v==null) return;
+      const x = cx + side*(barW/2+1) - (side<0?barW:0);
+      const top = useLog ? y(v) : y(v);
+      const rct = svgEl("rect",{x, y:top, width:barW, height:Math.max(1,H-pad.b-top),
+        class:"bar "+cls, rx:1.5},svg);
+      svgEl("title",{},rct).textContent = `${d.label} · ${k==="a"?RUST:GLUTEN}: ${fmtTime(v)}`;
+    });
+    const lb = svgEl("text",{x:cx,y:H-14,"text-anchor":"middle",class:"axis",
+      transform:`rotate(-40 ${cx} ${H-14})`},svg);
+    lb.textContent = d.label + (d.markers.length?" "+d.markers.join(""):"");
+  });
+  svgEl("line",{x1:pad.l,x2:W-pad.r,y1:H-pad.b,y2:H-pad.b,stroke:"var(--line2)"},svg);
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.textContent = useLog
+    ? "Log scale: bar heights compress large gaps; small values stay visible."
+    : "Linear scale — a few very slow queries can dominate; switch to log to inspect the rest.";
+  host.appendChild(cap);
+}
+
+/* =========================================================
+   CLUSTER: chart + summary tables + status
+   ========================================================= */
+let clusterSf = "1000", clusterMetric = "r";
+const CLUSTER_METRICS = [
+  {value:"r",      label:"Wall time (Rust)", key:"r",  fmt:fmtTime,  engine:RUST},
+  {value:"g",      label:"Wall time (Gluten)", key:"g", fmt:fmtTime, engine:GLUTEN},
+  {value:"ratio",  label:"Ratio G/R",       key:"ratio", fmt:fmtRatio},
+  {value:"cpu",    label:"CPU hours",       key:"cpu", fmt:fmt1},
+  {value:"memtime",label:"Memory-hours",    key:"memtime", fmt:fmt1},
+  {value:"p95",    label:"p95 latency",     key:"p95", fmt:fmtTime}
+];
+function renderCluster(){
+  const rows = D.clusterQueries[clusterSf];
+  const m = CLUSTER_METRICS.find(x=>x.value===clusterMetric);
+  drawClusterChart(rows, m);
+
+  // summary table
+  const eng = D.cluster[clusterSf];
+  let html = `<thead><tr><th>Engine</th><th>Queries</th><th>Mean (s)</th><th>p50</th><th>p95</th>
+    <th>Max</th><th>CPU h</th><th>Mem h</th></tr></thead><tbody>`;
+  eng.forEach((e,i)=>{
+    html += `<tr><td class="name"><span class="dot" style="background:${i===0?"var(--rust)":"var(--gluten)"}"></span>${esc(e.engine)}</td>
+      <td class="num">${e.n}</td><td class="num">${fmt1(e.mean)}</td><td class="num">${fmt1(e.p50)}</td>
+      <td class="num">${fmt1(e.p95)}</td><td class="num">${fmt1(e.max)}</td>
+      <td class="num">${fmt1(e.cpuHours)}</td><td class="num">${fmt1(e.memHours)}</td></tr>`;
+  });
+  html += "</tbody>";
+  document.getElementById("clusterTable").innerHTML = html;
+
+  // wins table
+  const w = D.wins[clusterSf];
+  const tot = w[0]+w[1];
+  const faster = rows.filter(r=>r.ratio!=null);
+  const rustFaster = faster.filter(r=>r.ratio<1).length;
+  document.getElementById("winsTable").innerHTML = `
+    <thead><tr><th>Cluster sf ${esc(clusterSf)} — win split</th><th>Queries</th><th>Share</th></tr></thead>
+    <tbody>
+      <tr><td class="name"><span class="dot" style="background:var(--rust)"></span>${esc(RUST)} wins</td>
+        <td class="num">${w[0]}</td><td class="num win-rust">${(100*w[0]/tot).toFixed(1)}%</td></tr>
+      <tr><td class="name"><span class="dot" style="background:var(--gluten)"></span>${esc(GLUTEN)} wins</td>
+        <td class="num">${w[1]}</td><td class="num win-gluten">${(100*w[1]/tot).toFixed(1)}%</td></tr>
+      <tr class="total"><td>Total queries</td><td class="num">${tot}</td>
+        <td class="num">${rustFaster}/${faster.length} ratio &lt; 1</td></tr>
+    </tbody>`;
+
+  renderStatus();
+}
+function drawClusterChart(rows, m){
+  const host = document.getElementById("clusterChart");
+  const n = rows.length;
+  const W = Math.max(700, n*34), H = 290, pad = {l:58,r:14,t:24,b:36};
+  host.innerHTML = `<div class="chart-legend">
+      <span class="item"><span class="swatch" style="background:${m.engine===GLUTEN?"var(--gluten)":"var(--rust)"}"></span>${esc(m.label)}</span>
+      <span class="item" style="margin-left:auto;color:var(--faint)">TPC-H cluster sf ${esc(clusterSf)} — per query</span></div>`;
+  const svg = svgEl("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",height:H,role:"img",
+    "aria-label":`Cluster sf ${clusterSf} ${m.label}`}, host);
+  const get = r => {
+    if (m.key==="cpu"||m.key==="memtime"||m.key==="p95") return r[m.key] ? r[m.key][m.engine===GLUTEN?1:0] : null;
+    return r[m.key];
+  };
+  const vals = rows.map(get).filter(v=>v!=null && v>0);
+  const vmax = Math.max(...vals)*1.12;
+  const y = v => H-pad.b - (v/vmax)*(H-pad.t-pad.b);
+  const g = svgEl("g",{class:"axis"},svg);
+  niceTicks(0,vmax,5).forEach(t=>{
+    if (t<0) return;
+    svgEl("line",{x1:pad.l,x2:W-pad.r,y1:y(t),y2:y(t),class:"gridline"},g);
+    const tx = svgEl("text",{x:pad.l-7,y:y(t)+3,"text-anchor":"end"},g); tx.textContent = m.fmt(t);
+  });
+  const bw = (W-pad.l-pad.r)/n, barW = Math.min(20, bw*0.65);
+  rows.forEach((r,i)=>{
+    const v = get(r), cx = pad.l + bw*i + bw/2;
+    if (v!=null && v>0){
+      const cls = m.key==="ratio" ? (r.ratio<1?"bar-rust":"bar-gluten")
+                : (m.engine===GLUTEN?"bar-gluten":"bar-rust");
+      const rc = svgEl("rect",{x:cx-barW/2, y:y(v), width:barW, height:Math.max(1,H-pad.b-y(v)),
+        class:"bar "+cls, rx:1.5},svg);
+      svgEl("title",{},rc).textContent = `Q${r.q} · ${m.label}: ${m.fmt(v)} · status: ${r.status}`;
+    } else {
+      const t = svgEl("text",{x:cx,y:H-pad.b-6,"text-anchor":"middle",class:"val",fill:"var(--faint)"},svg);
+      t.textContent = "—";
+    }
+    if (i%2===0){
+      const lb = svgEl("text",{x:cx,y:H-14,"text-anchor":"middle",class:"axis",
+        transform:`rotate(-40 ${cx} ${H-14})`},svg);
+      lb.textContent = "Q"+r.q;
+    }
+  });
+  svgEl("line",{x1:pad.l,x2:W-pad.r,y1:H-pad.b,y2:H-pad.b,stroke:"var(--line2)"},svg);
+}
+
+function renderStatus(){
+  const rows = D.clusterQueries[clusterSf];
+  let html = `<thead><tr><th>Query</th><th style="text-align:left">Status</th>
+    <th>Ratio</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const s = String(r.status);
+    const cls = s==="pass" ? "pass" : s==="gap" ? "gap" : "other";
+    const label = s.startsWith("pass") ? (s==="pass"?"pass":s) : s;
+    html += `<tr><td class="name">Q${r.q}</td>
+      <td class="status"><span class="pill ${cls}">${esc(label.length>60?label.slice(0,58)+"…":label)}</span>
+        ${s.length>60?`<span class="why">${esc(s)}</span>`:""}</td>
+      <td class="num">${fmtRatio(r.ratio)}</td></tr>`;
+  });
+  html += "</tbody>";
+  document.getElementById("statusTable").innerHTML = html;
+}
+
+/* =========================================================
+   WIRING
+   ========================================================= */
+seg(document.getElementById("totalsSuiteSeg"),
+  ["TPC-H","TPC-DS"].map(v=>({label:v,value:v})), totalsSuite, v=>{ totalsSuite=v; renderTotals(); });
+singleSegs();
+document.getElementById("logScale").onchange = renderSingle;
+seg(document.getElementById("clusterSfSeg"),
+  Object.keys(D.clusterQueries).sort((a,b)=>+a-+b).map(v=>({label:"sf "+v,value:v})),
+  clusterSf, v=>{ clusterSf=v; renderCluster(); });
+seg(document.getElementById("clusterMetricSeg"),
+  CLUSTER_METRICS.map(m=>({label:m.label,value:m.value})), clusterMetric,
+  v=>{ clusterMetric=v; renderCluster(); });
+
+renderStats();
+</script>
+</body>
+</html>

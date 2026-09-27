@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engine Comparison Report - TPC-H & TPC-DS Benchmarks</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primary: #0066cc;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-neutral-50: #f9fafb;
+            --color-neutral-100: #f3f4f6;
+            --color-neutral-200: #e5e7eb;
+            --color-neutral-300: #d1d5db;
+            --color-neutral-600: #4b5563;
+            --color-neutral-700: #374151;
+            --color-neutral-900: #111827;
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--color-neutral-50);
+            color: var(--color-neutral-900);
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, #0052a3 100%);
+            color: white;
+            padding: var(--spacing-xl) var(--spacing-lg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--color-neutral-900);
+            border-bottom: 3px solid var(--color-primary);
+            padding-bottom: var(--spacing-sm);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--color-neutral-700);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: var(--spacing-md);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--color-primary);
+        }
+
+        .summary-card.best {
+            border-left-color: var(--color-success);
+        }
+
+        .summary-card.worst {
+            border-left-color: var(--color-danger);
+        }
+
+        .summary-card h4 {
+            font-size: 0.9rem;
+            color: var(--color-neutral-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-neutral-900);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .summary-card .unit {
+            font-size: 0.9rem;
+            color: var(--color-neutral-600);
+        }
+
+        .summary-card .badge {
+            display: inline-block;
+            background-color: var(--color-neutral-100);
+            color: var(--color-neutral-700);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-top: var(--spacing-xs);
+        }
+
+        .badge.success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge.danger {
+            background-color: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: var(--spacing-md);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: var(--spacing-md);
+            position: relative;
+            height: 400px;
+        }
+
+        .chart-container.tall {
+            height: 500px;
+        }
+
+        .controls {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: var(--spacing-xs) var(--spacing-md);
+            border: 1px solid var(--color-neutral-300);
+            background: white;
+            color: var(--color-neutral-700);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--color-neutral-100);
+            border-color: var(--color-neutral-400);
+        }
+
+        .btn.active {
+            background-color: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: var(--spacing-md);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        thead {
+            background-color: var(--color-neutral-100);
+            border-bottom: 2px solid var(--color-neutral-300);
+        }
+
+        th {
+            padding: var(--spacing-sm);
+            text-align: left;
+            font-weight: 600;
+            color: var(--color-neutral-700);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            background-color: var(--color-neutral-200);
+        }
+
+        td {
+            padding: var(--spacing-sm);
+            border-bottom: 1px solid var(--color-neutral-200);
+        }
+
+        tbody tr:hover {
+            background-color: var(--color-neutral-50);
+        }
+
+        .metric-cell {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .metric-cell.best {
+            color: var(--color-success);
+            font-weight: 600;
+        }
+
+        .metric-cell.worst {
+            color: var(--color-danger);
+            font-weight: 600;
+        }
+
+        .ratio-bar {
+            display: inline-block;
+            height: 24px;
+            background: linear-gradient(90deg, var(--color-success), var(--color-warning), var(--color-danger));
+            border-radius: 4px;
+            min-width: 40px;
+            text-align: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 24px;
+            padding: 0 var(--spacing-xs);
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--spacing-xs);
+            border-bottom: 2px solid var(--color-neutral-200);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .tab {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--color-neutral-600);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--color-primary);
+        }
+
+        .tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .stat {
+            background: white;
+            padding: var(--spacing-md);
+            border-radius: 6px;
+            border: 1px solid var(--color-neutral-200);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--color-neutral-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-neutral-900);
+            font-family: var(--font-mono);
+        }
+
+        footer {
+            background-color: var(--color-neutral-100);
+            border-top: 1px solid var(--color-neutral-200);
+            padding: var(--spacing-lg);
+            text-align: center;
+            color: var(--color-neutral-600);
+            font-size: 0.9rem;
+            margin-top: var(--spacing-xl);
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            main {
+                padding: var(--spacing-md);
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+
+            .chart-container.tall {
+                height: 400px;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: var(--spacing-xs);
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Engine Comparison Report</h1>
+        <p>TPC-H & TPC-DS Benchmark Analysis</p>
+    </header>
+
+    <main>
+        <!-- Executive Summary -->
+        <section id="summary">
+            <h2>Executive Summary</h2>
+            <div class="summary-grid" id="summaryCards"></div>
+        </section>
+
+        <!-- TPC-H Analysis -->
+        <section id="tpch">
+            <h2>TPC-H Benchmark Results</h2>
+            <p style="margin-bottom: var(--spacing-md); color: var(--color-neutral-600);">
+                TPC-H is a decision support benchmark consisting of 22 queries. Results shown are aggregate times across all queries at different scale factors.
+            </p>
+
+            <div class="controls">
+                <button class="btn active" onclick="updateTPCHChart('time')">Total Time</button>
+                <button class="btn" onclick="updateTPCHChart('ratio')">Performance Ratio</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="tpchChart"></canvas>
+            </div>
+
+            <h3>TPC-H Detailed Results</h3>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTPCHTab('all')">All Scale Factors</button>
+                <button class="tab" onclick="switchTPCHTab('sf1')">SF=1</button>
+                <button class="tab" onclick="switchTPCHTab('sf10')">SF=10</button>
+                <button class="tab" onclick="switchTPCHTab('sf100')">SF=100</button>
+                <button class="tab" onclick="switchTPCHTab('sf1000')">SF=1000</button>
+            </div>
+
+            <div id="tpch-all" class="tab-content active">
+                <div class="table-wrapper" id="tpchTableAll"></div>
+            </div>
+            <div id="tpch-sf1" class="tab-content">
+                <div class="table-wrapper" id="tpchTableSF1"></div>
+            </div>
+            <div id="tpch-sf10" class="tab-content">
+                <div class="table-wrapper" id="tpchTableSF10"></div>
+            </div>
+            <div id="tpch-sf100" class="tab-content">
+                <div class="table-wrapper" id="tpchTableSF100"></div>
+            </div>
+            <div id="tpch-sf1000" class="tab-content">
+                <div class="table-wrapper" id="tpchTableSF1000"></div>
+            </div>
+        </section>
+
+        <!-- TPC-DS Analysis -->
+        <section id="tpcds">
+            <h2>TPC-DS Benchmark Results</h2>
+            <p style="margin-bottom: var(--spacing-md); color: var(--color-neutral-600);">
+                TPC-DS is a complex analytical benchmark with 99 queries. Results shown are aggregate times across all queries at different scale factors.
+            </p>
+
+            <div class="controls">
+                <button class="btn active" onclick="updateTPCDSChart('time')">Total Time</button>
+                <button class="btn" onclick="updateTPCDSChart('ratio')">Performance Ratio</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="tpcdsChart"></canvas>
+            </div>
+
+            <h3>TPC-DS Detailed Results</h3>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTPCDSTab('all')">All Scale Factors</button>
+                <button class="tab" onclick="switchTPCDSTab('sf1')">SF=1</button>
+                <button class="tab" onclick="switchTPCDSTab('sf10')">SF=10</button>
+                <button class="tab" onclick="switchTPCDSTab('sf100')">SF=100</button>
+                <button class="tab" onclick="switchTPCDSTab('sf1000')">SF=1000</button>
+            </div>
+
+            <div id="tpcds-all" class="tab-content active">
+                <div class="table-wrapper" id="tpcdsTableAll"></div>
+            </div>
+            <div id="tpcds-sf1" class="tab-content">
+                <div class="table-wrapper" id="tpcdsTableSF1"></div>
+            </div>
+            <div id="tpcds-sf10" class="tab-content">
+                <div class="table-wrapper" id="tpcdsTableSF10"></div>
+            </div>
+            <div id="tpcds-sf100" class="tab-content">
+                <div class="table-wrapper" id="tpcdsTableSF100"></div>
+            </div>
+            <div id="tpcds-sf1000" class="tab-content">
+                <div class="table-wrapper" id="tpcdsTableSF1000"></div>
+            </div>
+        </section>
+
+        <!-- Comparative Analysis -->
+        <section id="comparison">
+            <h2>Comparative Analysis</h2>
+            <div class="chart-container tall">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Engine Comparison Report • Generated from TPC-H and TPC-DS benchmark data</p>
+        <p style="margin-top: var(--spacing-sm); font-size: 0.85rem;">
+            Lower execution times and ratios indicate better performance. Ratio is relative to the fastest engine at each scale factor.
+        </p>
+    </footer>
+
+    <script>
+        // Data embedded in the HTML
+        const data = {
+            "engines": [
+                "Spark Rust 0.42.1 (default)",
+                "Spark Rust 0.42.1 (tuned)",
+                "DuckDB 1.5.5",
+                "Spark 4.1.1 Gluten",
+                "Spark 4.2"
+            ],
+            "totals": {
+                "TPC-H": [
+                    {"sf": "1", "engine": "Spark Rust 0.42.1 (default)", "n": 22, "time": 6.096135, "diff": 1.507996, "ratio": 1.328673, "canonical": 6.096135, "matched": null},
+                    {"sf": "1", "engine": "Spark Rust 0.42.1 (tuned)", "n": 22, "time": 5.677557, "diff": 1.089418, "ratio": 1.237442, "canonical": 5.677557, "matched": null},
+                    {"sf": "1", "engine": "DuckDB 1.5.5", "n": 22, "time": 4.588139, "diff": 0, "ratio": 1, "canonical": 4.588139, "matched": null},
+                    {"sf": "1", "engine": "Spark 4.1.1 Gluten", "n": 22, "time": 243.099002, "diff": 238.510863, "ratio": 52.984228, "canonical": 243.099002, "matched": null},
+                    {"sf": "1", "engine": "Spark 4.2", "n": 22, "time": 229.049747, "diff": 224.461608, "ratio": 49.922146, "canonical": 229.049747, "matched": null},
+                    {"sf": "10", "engine": "Spark Rust 0.42.1 (default)", "n": 22, "time": 41.30465, "diff": 3.65108, "ratio": 1.096965, "canonical": 41.30465, "matched": null},
+                    {"sf": "10", "engine": "Spark Rust 0.42.1 (tuned)", "n": 22, "time": 40.510259, "diff": 2.856689, "ratio": 1.075868, "canonical": 40.510259, "matched": null},
+                    {"sf": "10", "engine": "DuckDB 1.5.5", "n": 22, "time": 37.65357, "diff": 0, "ratio": 1, "canonical": 37.65357, "matched": null},
+                    {"sf": "10", "engine": "Spark 4.1.1 Gluten", "n": 22, "time": 289.230722, "diff": 251.577152, "ratio": 7.681363, "canonical": 289.230722, "matched": null},
+                    {"sf": "10", "engine": "Spark 4.2", "n": 22, "time": 299.291126, "diff": 261.637556, "ratio": 7.948546, "canonical": 299.291126, "matched": null},
+                    {"sf": "100", "engine": "Spark Rust 0.42.1 (default)", "n": 22, "time": 493.900658, "diff": 13.66666, "ratio": 1.028458, "canonical": 493.900658, "matched": null},
+                    {"sf": "100", "engine": "Spark Rust 0.42.1 (tuned)", "n": 22, "time": 492.968174, "diff": 12.734176, "ratio": 1.026517, "canonical": 492.968174, "matched": null},
+                    {"sf": "100", "engine": "DuckDB 1.5.5", "n": 22, "time": 480.233998, "diff": 0, "ratio": 1, "canonical": 480.233998, "matched": null},
+                    {"sf": "100", "engine": "Spark 4.1.1 Gluten", "n": 22, "time": 851.915935, "diff": 371.681937, "ratio": 1.77396, "canonical": 851.915935, "matched": null},
+                    {"sf": "100", "engine": "Spark 4.2", "n": 22, "time": 1089.140554, "diff": 608.906556, "ratio": 2.267937, "canonical": 1089.140554, "matched": null},
+                    {"sf": "1000", "engine": "Spark Rust 0.42.1 (default)", "n": 22, "time": 5510.720959, "diff": 150.119932, "ratio": 1.028004, "canonical": 5510.720959, "matched": null},
+                    {"sf": "1000", "engine": "Spark Rust 0.42.1 (tuned)", "n": 22, "time": 5608.437131, "diff": 247.836104, "ratio": 1.046233, "canonical": 5608.437131, "matched": null},
+                    {"sf": "1000", "engine": "DuckDB 1.5.5", "n": 22, "time": 5360.601027, "diff": 0, "ratio": 1, "canonical": 5360.601027, "matched": null},
+                    {"sf": "1000", "engine": "Spark 4.1.1 Gluten", "n": 22, "time": 11768.80342, "diff": 6408.202393, "ratio": 2.195426, "canonical": 11768.80342, "matched": null},
+                    {"sf": "1000", "engine": "Spark 4.2", "n": 22, "time": 16666.556699, "diff": 11305.955672, "ratio": 3.109084, "canonical": null, "matched": null},
+                    {"sf": "all", "engine": "Spark Rust 0.42.1 (default)", "n": 88, "time": 6052.022402, "diff": 168.945667, "ratio": 1.028717, "canonical": 6052.022402, "matched": 1.018584},
+                    {"sf": "all", "engine": "Spark Rust 0.42.1 (tuned)", "n": 88, "time": 6147.59312, "diff": 264.516385, "ratio": 1.044962, "canonical": 6147.59312, "matched": 1.044962},
+                    {"sf": "all", "engine": "DuckDB 1.5.5", "n": 88, "time": 5883.076735, "diff": 0, "ratio": 1, "canonical": 5883.076735, "matched": 1},
+                    {"sf": "all", "engine": "Spark 4.1.1 Gluten", "n": 88, "time": 13153.049079, "diff": 7269.972344, "ratio": 2.235743, "canonical": 13153.049079, "matched": 2.235743},
+                    {"sf": "all", "engine": "Spark 4.2", "n": 88, "time": 18284.038127, "diff": 12400.961392, "ratio": 3.107904, "canonical": null, "matched": 3.141528}
+                ],
+                "TPC-DS": [
+                    {"sf": "1", "engine": "Spark Rust 0.42.1 (default)", "n": 99, "time": 33.848302, "diff": 6.715517, "ratio": 1.247506, "canonical": 33.848302, "matched": null},
+                    {"sf": "1", "engine": "Spark Rust 0.42.1 (tuned)", "n": 99, "time": 31.963711, "diff": 4.830926, "ratio": 1.178048, "canonical": 31.963711, "matched": null},
+                    {"sf": "1", "engine": "DuckDB 1.5.5", "n": 99, "time": 27.132785, "diff": 0, "ratio": 1, "canonical": 27.132785, "matched": null},
+                    {"sf": "1", "engine": "Spark 4.1.1 Gluten", "n": 99, "time": 1224.537894, "diff": 1197.405109, "ratio": 45.131301, "canonical": 1224.537894, "matched": null},
+                    {"sf": "1", "engine": "Spark 4.2", "n": 99, "time": 1142.469283, "diff": 1115.336498, "ratio": 42.106598, "canonical": 1142.469283, "matched": null},
+                    {"sf": "10", "engine": "Spark Rust 0.42.1 (default)", "n": 99, "time": 79.916638, "diff": 15.14581, "ratio": 1.233837, "canonical": 79.916638, "matched": null},
+                    {"sf": "10", "engine": "Spark Rust 0.42.1 (tuned)", "n": 99, "time": 75.578705, "diff": 10.807877, "ratio": 1.166863, "canonical": 75.578705, "matched": null},
+                    {"sf": "10", "engine": "DuckDB 1.5.5", "n": 99, "time": 64.770828, "diff": 0, "ratio": 1, "canonical": 64.770828, "matched": null},
+                    {"sf": "10", "engine": "Spark 4.1.1 Gluten", "n": 99, "time": 1492.907612, "diff": 1428.136784, "ratio": 23.049074, "canonical": 1492.907612, "matched": null},
+                    {"sf": "10", "engine": "Spark 4.2", "n": 99, "time": 1357.370072, "diff": 1292.599244, "ratio": 20.956503, "canonical": 1357.370072, "matched": null},
+                    {"sf": "100", "engine": "Spark Rust 0.42.1 (default)", "n": 99, "time": 772.298476, "diff": -7.856355, "ratio": 0.98993, "canonical": 772.298476, "matched": null},
+                    {"sf": "100", "engine": "Spark Rust 0.42.1 (tuned)", "n": 99, "time": 764.557195, "diff": -15.597636, "ratio": 0.980007, "canonical": 764.557195, "matched": null},
+                    {"sf": "100", "engine": "DuckDB 1.5.5", "n": 99, "time": 780.154831, "diff": 0, "ratio": 1, "canonical": 780.154831, "matched": null},
+                    {"sf": "100", "engine": "Spark 4.1.1 Gluten", "n": 99, "time": 2400.21694, "diff": 1620.062109, "ratio": 3.07659, "canonical": 2400.21694, "matched": null},
+                    {"sf": "100", "engine": "Spark 4.2", "n": 99, "time": 2775.72982, "diff": 1995.574989, "ratio": 3.557922, "canonical": 2775.72982, "matched": null},
+                    {"sf": "1000", "engine": "Spark Rust 0.42.1 (default)", "n": 99, "time": 10418.903457, "diff": -78.263764, "ratio": 0.992544, "canonical": 10418.903457, "matched": null},
+                    {"sf": "1000", "engine": "Spark Rust 0.42.1 (tuned)", "n": 99, "time": 10073.977127, "diff": -423.190094, "ratio": 0.959685, "canonical": 10082.325802, "matched": null},
+                    {"sf": "1000", "engine": "DuckDB 1.5.5", "n": 99, "time": 10497.167221, "diff": 0, "ratio": 1, "canonical": 10497.167221, "matched": null},
+                    {"sf": "1000", "engine": "Spark 4.1.1 Gluten", "n": 99, "time": 13878.018491, "diff": 3380.85127, "ratio": 1.322073, "canonical": null, "matched": null},
+                    {"sf": "1000", "engine": "Spark 4.2", "n": 99, "time": 18917.640231, "diff": 8420.47301, "ratio": 1.802166, "canonical": 18917.640231, "matched": null},
+                    {"sf": "all", "engine": "Spark Rust 0.42.1 (default)", "n": 396, "time": 11304.966873, "diff": -64.258792, "ratio": 0.994348, "canonical": 11304.966873, "matched": 1.18203},
+                    {"sf": "all", "engine": "Spark Rust 0.42.1 (tuned)", "n": 396, "time": 10946.076738, "diff": -423.148927, "ratio": 0.962781, "canonical": 10954.425413, "matched": 1.013303},
+                    {"sf": "all", "engine": "DuckDB 1.5.5", "n": 396, "time": 11369.225665, "diff": 0, "ratio": 1, "canonical": 11369.225665, "matched": 1},
+                    {"sf": "all", "engine": "Spark 4.1.1 Gluten", "n": 396, "time": 18995.680937, "diff": 7626.455272, "ratio": 1.670798, "canonical": null, "matched": 1.670798},
+                    {"sf": "all", "engine": "Spark 4.2", "n": 396, "time": 22262.980228, "diff": 10893.754563, "ratio": 1.957701, "canonical": 22262.980228, "matched": 1.957701}
+                ]
+            }
+        };
+
+        const colors = {
+            "Spark Rust 0.42.1 (default)": "#3b82f6",
+            "Spark Rust 0.42.1 (tuned)": "#1e40af",
+            "DuckDB 1.5.5": "#10b981",
+            "Spark 4.1.1 Gluten": "#f59e0b",
+            "Spark 4.2": "#ef4444"
+        };
+
+        let tpchChart, tpcdsChart, comparisonChart;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSummary();
+            renderTPCHTables();
+            renderTPCDSTables();
+            initCharts();
+        });
+
+        function renderSummary() {
+            const container = document.getElementById('summaryCards');
+            const tpchAll = data.totals['TPC-H'].find(r => r.sf === 'all');
+            const tpcdsAll = data.totals['TPC-DS'].find(r => r.sf === 'all');
+
+            const summaries = [
+                {
+                    title: 'Fastest TPC-H Engine',
+                    value: 'DuckDB 1.5.5',
+                    unit: '5,883 seconds (all SF)',
+                    badge: 'Best Performance',
+                    badgeClass: 'success',
+                    cardClass: 'best'
+                },
+                {
+                    title: 'Fastest TPC-DS Engine',
+                    value: 'DuckDB 1.5.5',
+                    unit: '11,369 seconds (all SF)',
+                    badge: 'Best Performance',
+                    badgeClass: 'success',
+                    cardClass: 'best'
+                },
+                {
+                    title: 'Spark Rust (default) vs DuckDB',
+                    value: '2.87%',
+                    unit: 'TPC-H Overhead',
+                    badge: 'Competitive',
+                    badgeClass: 'success',
+                    cardClass: ''
+                },
+                {
+                    title: 'Spark 4.2 vs DuckDB',
+                    value: '3.11x',
+                    unit: 'TPC-H Slower',
+                    badge: 'Significant Gap',
+                    badgeClass: 'danger',
+                    cardClass: 'worst'
+                }
+            ];
+
+            container.innerHTML = summaries.map(s => `
+                <div class="summary-card ${s.cardClass}">
+                    <h4>${s.title}</h4>
+                    <div class="value">${s.value}</div>
+                    <div class="unit">${s.unit}</div>
+                    <span class="badge ${s.badgeClass}">${s.badge}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTPCHTables() {
+            const scaleFactors = ['all', '1', '10', '100', '1000'];
+            scaleFactors.forEach(sf => {
+                const rows = data.totals['TPC-H'].filter(r => r.sf === sf);
+                const container = document.getElementById(`tpchTable${sf === 'all' ? 'All' : 'SF' + sf}`);
+                container.innerHTML = createTable(rows, 'TPC-H', sf);
+            });
+        }
+
+        function renderTPCDSTables() {
+            const scaleFactors = ['all', '1', '10', '100', '1000'];
+            scaleFactors.forEach(sf => {
+                const rows = data.totals['TPC-DS'].filter(r => r.sf === sf);
+                const container = document.getElementById(`tpcdsTable${sf === 'all' ? 'All' : 'SF' + sf}`);
+                container.innerHTML = createTable(rows, 'TPC-DS', sf);
+            });
+        }
+
+        function createTable(rows, benchmark, sf) {
+            if (rows.length === 0) return '<p>No data available</p>';
+
+            const minTime = Math.min(...rows.map(r => r.time));
+            const maxTime = Math.max(...rows.map(r => r.time));
+
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Engine</th>
+                            <th>Queries</th>
+                            <th>Total Time (s)</th>
+                            <th>Ratio vs Best</th>
+                            <th>Overhead (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => {
+                            const isBest = row.time === minTime;
+                            const isWorst = row.time === maxTime;
+                            return `
+                                <tr>
+                                    <td><strong>${row.engine}</strong></td>
+                                    <td class="metric-cell">${row.n}</td>
+                                    <td class="metric-cell ${isBest ? 'best' : isWorst ? 'worst' : ''}">
+                                        ${row.time.toFixed(2)}
+                                    </td>
+                                    <td>
+                                        <span class="ratio-bar" style="width: ${Math.min(row.ratio * 20, 100)}px;">
+                                            ${row.ratio.toFixed(2)}x
+                                        </span>
+                                    </td>
+                                    <td class="metric-cell">${row.diff.toFixed(2)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            return html;
+        }
+
+        function initCharts() {
+            initTPCHChart();
+            initTPCDSChart();
+            initComparisonChart();
+        }
+
+        function initTPCHChart() {
+            const ctx = document.getElementById('tpchChart').getContext('2d');
+            const scaleFactors = ['1', '10', '100', '1000'];
+            const datasets = [];
+
+            data.engines.forEach(engine => {
+                const values = scaleFactors.map(sf => {
+                    const row = data.totals['TPC-H'].find(r => r.sf === sf && r.engine === engine);
+                    return row ? row.time : 0;
+                });
+
+                datasets.push({
+                    label: engine,
+                    data: values,
+                    borderColor: colors[engine],
+                    backgroundColor: colors[engine] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                });
+            });
+
+            tpchChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: scaleFactors.map(sf => `SF=${sf}`),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'TPC-H Total Execution Time by Scale Factor'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            title: {
+                                display: true,
+                                text: 'Time (seconds, log scale)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initTPCDSChart() {
+            const ctx = document.getElementById('tpcdsChart').getContext('2d');
+            const scaleFactors = ['1', '10', '100', '1000'];
+            const datasets = [];
+
+            data.engines.forEach(engine => {
+                const values = scaleFactors.map(sf => {
+                    const row = data.totals['TPC-DS'].find(r => r.sf === sf && r.engine === engine);
+                    return row ? row.time : 0;
+                });
+
+                datasets.push({
+                    label: engine,
+                    data: values,
+                    borderColor: colors[engine],
+                    backgroundColor: colors[engine] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                });
+            });
+
+            tpcdsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: scaleFactors.map(sf => `SF=${sf}`),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'TPC-DS Total Execution Time by Scale Factor'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            title: {
+                                display: true,
+                                text: 'Time (seconds, log scale)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initComparisonChart() {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const allData = data.totals['TPC-H'].filter(r => r.sf === 'all')
+                .concat(data.totals['TPC-DS'].filter(r => r.sf === 'all'));
+
+            const datasets = [];
+            data.engines.forEach(engine => {
+                const tpchRow = data.totals['TPC-H'].find(r => r.sf === 'all' && r.engine === engine);
+                const tpcdsRow = data.totals['TPC-DS'].find(r => r.sf === 'all' && r.engine === engine);
+
+                datasets.push({
+                    label: engine,
+                    data: [
+                        tpchRow ? tpchRow.time : 0,
+                        tpcdsRow ? tpcdsRow.time : 0
+                    ],
+                    backgroundColor: colors[engine]
+                });
+            });
+
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['TPC-H (All SF)', 'TPC-DS (All SF)'],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Overall Benchmark Comparison (All Scale Factors Combined)'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Total Time (seconds)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTPCHChart(metric) {
+            // Update button states
+            document.querySelectorAll('#tpch .controls .btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update chart data
+            const scaleFactors = ['1', '10', '100', '1000'];
+            const datasets = [];
+
+            data.engines.forEach(engine => {
+                const values = scaleFactors.map(sf => {
+                    const row = data.totals['TPC-H'].find(r => r.sf === sf && r.engine === engine);
+                    return row ? (metric === 'time' ? row.time : row.ratio) : 0;
+                });
+
+                datasets.push({
+                    label: engine,
+                    data: values,
+                    borderColor: colors[engine],
+                    backgroundColor: colors[engine] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                });
+            });
+
+            tpchChart.data.datasets = datasets;
+            tpchChart.options.scales.y.type = metric === 'time' ? 'logarithmic' : 'linear';
+            tpchChart.options.scales.y.title.text = metric === 'time' ? 'Time (seconds, log scale)' : 'Performance Ratio (vs Best)';
+            tpchChart.update();
+        }
+
+        function updateTPCDSChart(metric) {
+            document.querySelectorAll('#tpcds .controls .btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const scaleFactors = ['1', '10', '100', '1000'];
+            const datasets = [];
+
+            data.engines.forEach(engine => {
+                const values = scaleFactors.map(sf => {
+                    const row = data.totals['TPC-DS'].find(r => r.sf === sf && r.engine === engine);
+                    return row ? (metric === 'time' ? row.time : row.ratio) : 0;
+                });
+
+                datasets.push({
+                    label: engine,
+                    data: values,
+                    borderColor: colors[engine],
+                    backgroundColor: colors[engine] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                });
+            });
+
+            tpcdsChart.data.datasets = datasets;
+            tpcdsChart.options.scales.y.type = metric === 'time' ? 'logarithmic' : 'linear';
+            tpcdsChart.options.scales.y.title.text = metric === 'time' ? 'Time (seconds, log scale)' : 'Performance Ratio (vs Best)';
+            tpcdsChart.update();
+        }
+
+        function switchTPCHTab(tab) {
+            document.querySelectorAll('#tpch .tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tpch .tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tpch-${tab}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function switchTPCDSTab(tab) {
+            document.querySelectorAll('#tpcds .tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tpcds .tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tpcds-${tab}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

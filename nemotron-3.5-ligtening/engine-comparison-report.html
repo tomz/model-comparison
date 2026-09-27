@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engine Comparison Report — TPC-H & TPC-DS</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #111111;
+    --muted: #666666;
+    --accent: #0066cc;
+    --card: #ffffff;
+    --border: #dddddd;
+    --success: #2e7d32;
+    --warning: #f57f17;
+    --error: #c62828;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212;
+      --fg: #e0e0e0;
+      --muted: #aaaabb;
+      --accent: #90caf9;
+      --card: #1e1e1e;
+      --border: #333333;
+      --success: #43a047;
+      --warning: #f9a825;
+      --error: #e53935;
+    }
+  }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.5; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  h1, h2, h3 { margin-top: 0; }
+  h1 { font-size: 2rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.5rem; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 0.5rem; }
+  h3 { font-size: 1.25rem; }
+  .muted { color: var(--muted); }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }
+  .summary-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; text-align: center; }
+  .summary-card .value { font-size: 2rem; font-weight: bold; margin: 0.5rem 0; }
+  .summary-card .label { color: var(--muted); font-size: 0.875rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+  th { background: var(--card); position: sticky; top: 0; padding: 0.75rem; text-align: left; font-weight: 600; color: var(--fg); border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+  tr:nth-child(even) td { background: var(--bg); }
+  .engine-spark-rust-default { color: var(--accent); }
+  .engine-spark-rust-tuned { color: #2e7d32; }
+  .engine-duckdb { color: #1565c0; }
+  .engine-spark-gluten { color: #f57f17; }
+  .engine-spark { color: #6a1b9a; }
+  .ratio { font-family: monospace; }
+  .badge { display: inline-block; padding: 0.25rem 0.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; margin-left: 0.25rem; }
+  .no-data { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Engine Comparison Report</h1>
+  <p class="muted">TPC-H and TPC-DS benchmarks across multiple data platforms and scale factors</p>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="value">5</div>
+      <div class="label">Engines Compared</div>
+    </div>
+    <div class="summary-card">
+      <div class="value">25</div>
+      <div class="label">TPC-H Tests</div>
+    </div>
+    <div class="summary-card">
+      <div class="value">25</div>
+      <div class="label">TPC-DS Tests</div>
+    </div>
+    <div class="summary-card">
+      <div class="value">1, 10, 100, 1000, all</div>
+      <div class="label">Scale Factors</div>
+    </div>
+  </div>
+
+  <!-- TPC-H Section -->
+  <section>
+    <h2>TPC-H Benchmark Results</h2>
+    <p class="muted">22 queries executed across scale factors 1, 10, 100, 1000, and "all"</p>
+
+    <div class="muted">
+      <strong>Best engine per scale factor:</strong>
+      <ul>
+        <li>SF 1: DuckDB 1.5.5 (4.588s)</li>
+        <li>SF 10: DuckDB 1.5.5 (37.654s)</li>
+        <li>SF 100: DuckDB 1.5.5 (480.234s)</li>
+        <li>SF 1000: DuckDB 1.5.5 (5360.601s)</li>
+        <li>All: DuckDB 1.5.5 (5883.077s)</li>
+      </ul>
+    </div>
+
+    <h3>Scale Factor 1</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>6.096</td><td>1.508</td><td><span class="ratio">1.328673</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>5.678</td><td>1.089</td><td><span class="ratio">1.237442</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>4.588</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>243.099</td><td>238.511</td><td><span class="ratio">52.984228</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>229.050</td><td>224.462</td><td><span class="ratio">49.922146</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 10</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>41.305</td><td>3.651</td><td><span class="ratio">1.096965</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>40.510</td><td>2.857</td><td><span class="ratio">1.075868</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>37.654</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>289.231</td><td>251.577</td><td><span class="ratio">7.681363</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>299.291</td><td>261.638</td><td><span class="ratio">7.948546</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 100</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>493.901</td><td>13.667</td><td><span class="ratio">1.028458</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>492.968</td><td>12.734</td><td><span class="ratio">1.026517</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>480.234</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>851.916</td><td>371.682</td><td><span class="ratio">1.773960</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1089.141</td><td>608.907</td><td><span class="ratio">2.267937</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 1000</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>5510.721</td><td>150.120</td><td><span class="ratio">1.028004</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>5608.437</td><td>247.836</td><td><span class="ratio">1.046233</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>5360.601</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>11768.803</td><td>6408.202</td><td><span class="ratio">2.195426</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>16666.557</td><td>11305.956</td><td><span class="ratio">3.109084</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>All Scale Factors (Aggregate)</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Total Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>6052.022</td><td>168.946</td><td><span class="ratio">1.028717</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>6147.593</td><td>264.516</td><td><span class="ratio">1.044962</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>5883.077</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>13153.049</td><td>7269.972</td><td><span class="ratio">2.235743</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>18284.038</td><td>12400.961</td><td><span class="ratio">3.107904</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>6.096</td><td>1.508</td><td><span class="ratio">1.328673</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>5.678</td><td>1.089</td><td><span class="ratio">1.237442</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>4.588</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>243.099</td><td>238.511</td><td><span class="ratio">52.984228</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>229.050</td><td>224.462</td><td><span class="ratio">49.922146</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>41.305</td><td>3.651</td><td><span class="ratio">1.096965</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>40.510</td><td>2.857</td><td><span class="ratio">1.075868</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>37.654</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>289.231</td><td>251.577</td><td><span class="ratio">7.681363</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>299.291</td><td>261.638</td><td><span class="ratio">7.948546</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>493.901</td><td>13.667</td><td><span class="ratio">1.028458</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>492.968</td><td>12.734</td><td><span class="ratio">1.026517</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>480.234</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>851.916</td><td>371.682</td><td><span class="ratio">1.773960</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1089.141</td><td>608.907</td><td><span class="ratio">2.267937</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>5510.721</td><td>150.120</td><td><span class="ratio">1.028004</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>5608.437</td><td>247.836</td><td><span class="ratio">1.046233</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>5360.601</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>11768.803</td><td>6408.202</td><td><span class="ratio">2.195426</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>16666.557</td><td>11305.956</td><td><span class="ratio">3.109084</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- TPC-DS Section -->
+  <section>
+    <h2>TPC-DS Benchmark Results</h2>
+    <p class="muted">99 queries executed across scale factors 1, 10, 100, 1000, and "all"</p>
+
+    <div class="muted">
+      <strong>Best engine per scale factor:</strong>
+      <ul>
+        <li>SF 1: DuckDB 1.5.5 (27.133s)</li>
+        <li>SF 10: DuckDB 1.5.5 (64.771s)</li>
+        <li>SF 100: DuckDB 1.5.5 (764.557s)</li>
+        <li>SF 1000: Spark Rust 0.42.1 (tuned) (10073.977s)</li>
+        <li>All: DuckDB 1.5.5 (11369.226s)</li>
+      </ul>
+    </div>
+
+    <h3>Scale Factor 1</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>33.848</td><td>6.716</td><td><span class="ratio">1.247506</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>31.964</td><td>4.831</td><td><span class="ratio">1.178048</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>27.133</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>1224.538</td><td>1197.405</td><td><span class="ratio">45.131301</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1142.469</td><td>1115.336</td><td><span class="ratio">42.106598</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 10</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>79.917</td><td>15.146</td><td><span class="ratio">1.233837</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>75.579</td><td>10.808</td><td><span class="ratio">1.166863</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>64.771</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>1492.908</td><td>1428.137</td><td><span class="ratio">23.049074</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1357.370</td><td>1292.599</td><td><span class="ratio">20.956503</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 100</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>772.298</td><td>-7.856</td><td><span class="ratio">0.989930</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>764.557</td><td>-15.598</td><td><span class="ratio">0.980007</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>780.155</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>2400.217</td><td>1620.062</td><td><span class="ratio">3.076590</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>2775.730</td><td>1995.575</td><td><span class="ratio">3.557922</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scale Factor 1000</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>10418.903</td><td>-78.264</td><td><span class="ratio">0.992544</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>10073.977</td><td>-423.190</td><td><span class="ratio">0.959685</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>10497.167</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>13878.018</td><td>3380.851</td><td><span class="ratio">1.322073</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>18917.640</td><td>8420.473</td><td><span class="ratio">1.802166</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>All Scale Factors (Aggregate)</h3>
+    <table>
+      <thead>
+        <tr><th>Engine</th><th>Total Time (s)</th><th>Diff (s)</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>11304.967</td><td>-64.259</td><td><span class="ratio">0.994348</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>10946.077</td><td>-423.149</td><td><span class="ratio">0.962781</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>11369.226</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>18995.681</td><td>7626.455</td><td><span class="ratio">1.670798</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>24193.209</td><td>12823.984</td><td><span class="ratio">2.127956</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>33.848</td><td>6.716</td><td><span class="ratio">1.247506</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>31.964</td><td>4.831</td><td><span class="ratio">1.178048</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>27.133</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>1224.538</td><td>1197.405</td><td><span class="ratio">45.131301</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1142.469</td><td>1115.336</td><td><span class="ratio">42.106598</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>79.917</td><td>15.146</td><td><span class="ratio">1.233837</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>75.579</td><td>10.808</td><td><span class="ratio">1.166863</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>64.771</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>1492.908</td><td>1428.137</td><td><span class="ratio">23.049074</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>1357.370</td><td>1292.599</td><td><span class="ratio">20.956503</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>772.298</td><td>-7.856</td><td><span class="ratio">0.989930</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>764.557</td><td>-15.598</td><td><span class="ratio">0.980007</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>780.155</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>2400.217</td><td>1620.062</td><td><span class="ratio">3.076590</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>2775.730</td><td>1995.575</td><td><span class="ratio">3.557922</span></td></tr>
+<tr><td class="engine-spark-rust-default">Spark Rust 0.42.1 (default)</td><td>10418.903</td><td>-78.264</td><td><span class="ratio">0.992544</span></td></tr>
+<tr><td class="engine-spark-rust-tuned">Spark Rust 0.42.1 (tuned)</td><td>10073.977</td><td>-423.190</td><td><span class="ratio">0.959685</span></td></tr>
+<tr><td class="engine-duckdb">DuckDB 1.5.5</td><td>10497.167</td><td>0.000</td><td><span class="ratio">1.000000</span></td></tr>
+<tr><td class="engine-spark-gluten">Spark 4.1.1 Gluten</td><td>13878.018</td><td>3380.851</td><td><span class="ratio">1.322073</span></td></tr>
+<tr><td class="engine-spark">Spark 4.2</td><td>18917.640</td><td>8420.473</td><td><span class="ratio">1.802166</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="mt-4">
+    <p class="muted">Data source: engine-comparison-summary-data.json | Generated: 2026-09-26</p>
+  </footer>
+</div>
+
+<script>
+  // Theme toggle for prefers-color-scheme support
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    });
+  }
+</script>
+</body>
+</html>
