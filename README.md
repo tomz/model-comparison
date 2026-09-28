@@ -20,24 +20,25 @@ self-contained file, no network requests, opens from `file://`.
 
 | | |
 |---|---|
-| Runs compared | 35 (one excluded for having no screenshot) |
-| Combined cost | **$73.77** (median $0.43 per run) |
-| Combined model time | **7h06m** (median 7m56s per run) |
+| Runs compared | 36 (one excluded for having no screenshot) |
+| Combined cost | **$74.06** (median $0.42 per run) |
+| Combined model time | **7h09m** (median 7m32s per run) |
 | Spread among paid runs | **582×** — $0.03 to $14.54 |
-| Single-prompt runs | 27 of 35; 8 needed another prompt |
+| Single-prompt runs | 28 of 36; 8 needed another prompt |
 
 The two things the data supports:
 
 1. **Cost is dominated by the model, not the job.** Every run produced a report
    from the same 324 KB input, yet the bill ranges from $0.03 to $14.54 — and
    one free-tier run cost $0.0009. The dearest models are not visibly faster.
-2. **Time does not track price either.** The cheapest run finished in 58s; the
-   most expensive took 25m54s. The scatter plot in the report shows a broad
-   cloud, not a downward band: you cannot buy speed here.
+2. **Time does not track price either.** The fastest run — `gpt-6-luna`, also
+   the cheapest paid one — finished in 33s; the most expensive, `opus-5` at
+   $14.54, took 25m54s. The scatter plot in the report shows a broad cloud, not
+   a downward band: you cannot buy speed here.
 
 ## Report quality
 
-Each of the 36 generated reports was also scored 0–100 on how well it does the
+Each of the 37 generated reports was also scored 0–100 on how well it does the
 job of a benchmark report. The rubric is pre-registered and every point traces
 to a check recorded in `quality-ratings.json`:
 
@@ -51,7 +52,7 @@ to a check recorded in `quality-ratings.json`:
 | Ease of use | 10 | Navigation, sorting, filtering, drill-down, accessible controls |
 | Provenance | 8 | Builder, template, hashes, README and tests kept alongside |
 
-**Median 81.4, range 32.3–96.8.** Best reports:
+**Median 81.8, range 32.3–96.8.** Best reports:
 
 | report | score | correctness | completeness | caveats |
 |---|---:|---:|---:|---:|
@@ -65,24 +66,24 @@ Weakest: `gemini-3.1-pro-preview` (32.3 — two tables, no charts, no caveats, n
 cluster view), `nemotron-3.5-ligtening` (45.9), `somemodel_unknown` (48.5).
 
 **Spend and quality move together, weakly.** Spearman rank correlation between a
-run's cost and its report quality is **0.486** (n=35), and between time and
-quality **0.689** — runs that cost more and ran longer *tended* to produce better
+run's cost and its report quality is **0.468** (n=36), and between time and
+quality **0.642** — runs that cost more and ran longer *tended* to produce better
 reports. But the relationship is loose and partly definitional (a fuller report
-takes more turns): the cheapest third still reached a median 77.8 against 87.5
-for the dearest third, and `deepseek-v4.1-flash` scored 81.4 — above median — for
-$0.09. This is correlational, on sequential runs, and cost largely reflects the
-provider's price list.
+takes more turns): the cheapest third still reached a median 79.5 against 87.9
+for the dearest third, and `deepseek-v4.1-flash` landed within half a point of
+the median (81.4) for $0.09. This is correlational, on sequential runs, and cost
+largely reflects the provider's price list.
 
 **Where the corpus is weakest.** Averaged per dimension the reports are strong on
-correctness (18.6/20) and completeness (16.0/18) but weak on **provenance**
-(2.8/8 — most attempts delete the builder, template, README or tests) and **ease
-of use** (5.0/10 — no navigation or filtering). Caveats average 9.5/14: many
+correctness (18.7/20) and completeness (16.3/18) but weak on **provenance**
+(2.9/8 — most attempts delete the builder, template, README or tests) and **ease
+of use** (5.1/10 — no navigation or filtering). Caveats average 9.8/14: many
 reports state no limitations at all.
 
 What the rubric deliberately does **not** score: visual taste, prose quality, and
 whether the conclusions are *interesting*. Those need a human looking at the
 rendering. The scores are structural and factual, which is why they are worth
-computing across 36 reports.
+computing across 37 reports.
 
 ## Return on investment
 
@@ -127,27 +128,29 @@ speed) to show which one cost each run the most.
 |---|---:|---:|---:|---:|---|
 | `mimo-2.6-pro` | **96.8** | $0.12 | **100** | **100** | best report at a frontier price |
 | `gpt-6-luna` | 75.0 | $0.03 | 77.5 | 77.5 | cheapest paid run; capped by its own quality |
-| `glm-5.3-flash` | 86.9 | $0.043 | 89.8 | 31.9 | cheaper per quality point, 8x slower |
+| `glm-5.3-flash` | 86.9 | $0.043 | 89.8 | 23.2 | cheapest at its quality, but 15x slower |
+| `muse-spark-1.3` | 87.8 | $0.29 | 37.8 | 58.6 | fastest at its quality; 2.4x the frontier price |
 | `openrouter-free` | 61.1 | $0.0009 | 63.1 | 51.3 | free, but capped near 63 by quality |
-| `opus-5` | 87.5 | $14.54 | 0.8 | 3.7 | 119x the going rate for its quality |
-| `grok-4.7` | 83.9 | $6.03 | 0.6 | 3.0 | 140x — worst in the corpus |
+| `opus-5` | 87.5 | $14.54 | 0.8 | 2.7 | 119x the going rate for its quality |
+| `grok-4.7` | 83.9 | $6.03 | 0.6 | 2.2 | 140x — worst in the corpus |
 
 **Every expensive run is dominated.** The Pareto frontier holds just **4 runs** by
 cost (7 by time, 9 on one or the other), the dearest costing **$0.12** against a
-median run cost of **$0.40** — no run at or above the median cost is on it.
-**18 of 35 runs** spent at least ten times the going rate for the quality they
+median run cost of **$0.42** — no run at or above the median cost is on it.
+**18 of 36 runs** spent at least ten times the going rate for the quality they
 reached; the worst, `grok-4.7`, paid **140x** the cheapest run at equal-or-better
 quality.
 
 **Recommendation.** `mimo-2.6-pro` is the pick: it produced the highest-scoring
 report in the corpus for $0.12 — one percent of what `opus-5` cost for a lower
 score — and it tops both ROI rankings. `gpt-6-luna` at $0.03 remains the choice if
-a merely adequate report (75.0/100) is all you need.
+a merely adequate report (75.0/100) is all you need. `muse-spark-1.3` is the
+middle path: 87.8/100 in 2m35s for $0.29, the fastest run at that quality level.
 
 **The recommendation is robust to weighting.** Re-weighting money against time
 from 1:3 to 3:1 selects `mimo-2.6-pro` at every setting. On money alone the
-runner-up is `glm-5.3-flash` (86.9 quality for $0.043): cheaper per quality point,
-but 8x slower, so it drops out of contention once time is charged.
+runner-up is `glm-5.3-flash` (86.9 quality for $0.043): cheapest at its quality,
+but 15x slower, so it drops out of contention once time is charged.
 
 
 
@@ -164,7 +167,7 @@ but 8x slower, so it drops out of contention once time is charged.
 | `anthropic/claude-sonnet-5` | 9m22s | $2.2900 | 1 |
 | `openai/gpt-6-astra` | 5m54s | $2.2800 | 1 |
 
-`≥` marks a lower bound (see caveats). Full results for all 35 runs are in the
+`≥` marks a lower bound (see caveats). Full results for all 36 runs are in the
 report's table, sortable and filterable.
 
 ## Pipeline
@@ -203,7 +206,7 @@ session, never a sum — the status bar shows a running total.
 **Cross-check.** Every run is matched to its entry in the assistant's own
 `~/.jaaicode/usage.jsonl` by the wall-clock overlap of its turn window, not by
 name or price. The directories were renamed after the runs, so their recorded
-`cwd` no longer identifies them; the timestamps do, and 33 of 35 runs reconcile
+`cwd` no longer identifies them; the timestamps do, and 34 of 36 runs reconcile
 to within $0.01.
 
 **Quality rating.** `rate_quality.py` opens each attempt's deliverable in
@@ -222,7 +225,7 @@ Requires Python 3.9+, Pillow, and the `tesseract` binary
 python3 extract_metrics.py            # OCR every attempt directory
 python3 rate_quality.py               # score each attempt's report -> quality-ratings.json
 python3 build_comparison.py --report  # aggregate + render comparison-report.html
-python3 -m unittest discover -s tests # 39 unit tests, no OCR or browser needed
+python3 -m unittest discover -s tests # 55 unit tests, no OCR or browser needed
 python3 verify_report.py              # browser checks + screenshots
 ```
 

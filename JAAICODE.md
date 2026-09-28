@@ -2,7 +2,7 @@
 
 ## Overview
 
-A side-by-side shoot-out of ~38 AI coding assistants, not a single application. Every
+A side-by-side shoot-out of ~37 AI coding assistants, not a single application. Every
 subdirectory is one model's independent attempt at the *same* prompt:
 
 > generate a professional quality self contained html from the
@@ -35,7 +35,7 @@ model-comparison/
 ├── report_template.py                    # root report HTML/CSS/JS, data inlined
 ├── verify_report.py, tests/test_parsers.py   # root browser checks, parser unit tests
 ├── screenshot-metrics.json / comparison-data.json / verification/   # generated
-├── <model-name>/                         # one attempt per model, ~38 of them:
+├── <model-name>/                         # one attempt per model, ~37 of them:
 │   #   data copy, builder, template + deliverable (names vary), optional README,
 │   #   tests/ and verification/, the evidence screenshot, graphify-out/
 ├── .jaaicode/                            # local prompt history (gitignored)
@@ -59,7 +59,7 @@ cd <model-name> && python3 tests/browser_check.py             # or: node verify_
 python3 extract_metrics.py            # OCR every attempt directory
 python3 rate_quality.py               # score each attempt's report -> quality-ratings.json
 python3 build_comparison.py --report  # aggregate + render comparison-report.html
-python3 -m unittest discover -s tests # 39 unit tests (no OCR or browser needed)
+python3 -m unittest discover -s tests # 55 unit tests (no OCR or browser needed)
 python3 verify_report.py              # Playwright checks + screenshots into verification/
 ```
 
@@ -105,7 +105,7 @@ cross-checks `~/.jaaicode/usage.jsonl`, then writes `comparison-data.json` and t
 - **`usage.jsonl` entries match by wall-clock overlap, not name or price.** Attempt directories
   were renamed after the runs, so recorded `cwd` no longer maps to a directory. `verification/`
   and `tests/` are tooling, not attempts (`extract_metrics.ATTEMPT_EXCLUDES`).
-- **The dataset is frozen.** All 34 copies (root original + 33 in attempts) are byte-identical
+- **The dataset is frozen.** All 35 copies (root original + 34 in attempts) are byte-identical
   (md5 `9fac9460a60f3ffb404d9036e2addc1b`). Never edit a copy, and never "fix" a number in a
   report by changing the input.
 - **Only that file is input.** The prompt forbids searching parent folders; reports must be
